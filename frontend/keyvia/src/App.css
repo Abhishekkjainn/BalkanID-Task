@@ -118,7 +118,7 @@ body::selection{
 }
 .tagline{
     font-size: 56px;
-    font-weight: 600;
+    font-weight: 700;
     width: 60%;
     text-align: center;
     color: white;
@@ -341,7 +341,7 @@ body::selection{
     padding-right: 16px;
     padding-top: 8px;
     padding-bottom: 8px;
-    background-color: rgb(216, 46, 16);
+    background-color: rgb(74, 74, 74);
     border-radius: 4px;
 }
 .uploadbutton{
@@ -522,4 +522,270 @@ body::selection{
     border-radius: 8px;
     font-weight: 700;
     cursor: pointer;
+}
+
+/*Preview Tab*/
+.preview{
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 40px;
+}
+.previewimage{
+    width: 90%;
+    border-radius:40px;
+    transform: translateY(-80px);
+}
+
+/*Features Section*/
+.features{
+    width: 100%;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+.featureshead{
+    font-size: 48px;
+    font-weight: 700;
+    color: white;
+}
+.featuresdesc{
+    font-size: 18px;
+    color: grey;
+    margin-top: 8px;
+    margin-bottom: 40px;
+    transform: translateY(-10px);
+}
+.featuresgrid{
+    width: 90%;
+    height: auto;
+    display: flex;
+    justify-content: space-between;
+    align-content: start;
+    flex-wrap: wrap;
+    margin-bottom: 40px;
+}
+.feature{
+    width: 32%;
+    aspect-ratio: 1;
+    border: 1px solid rgba(128, 128, 128, 0.200);
+    background-color: rgba(0, 0, 0, 0.627);
+    backdrop-filter: blur(20px);
+    border-radius: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-direction: column;
+    margin-bottom: 24px;
+}
+.feature:hover{
+    border: 1px solid rgba(0, 229, 143, 0.8);
+    cursor: pointer;
+    transition: 0.5s linear;
+}
+.featuretop{
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    width: calc(100% - 36px);
+    height: auto;
+    padding-left: 36px;
+    margin-top: 48px;
+}
+.ficon{
+    width: 24px;
+    margin-right: 12px;
+}
+.ftoptag{
+    font-size: 20px;
+    font-weight: 600;
+    color: white;
+}
+.featureimg{
+    width: 150px;
+}
+.featurebottom{
+    font-size: 14px;
+    font-weight: 600;
+    color: rgb(74, 74, 74);
+    width: 80%;
+    text-align: left;
+    margin-bottom: 36px;
+}
+
+/*Banner*/
+/* Banner Container */
+.bannerdiv{
+    width: 100%;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 80px;
+}
+.banner {
+  width: 90%;
+  height: 65vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at top left, #00c77c, #111 70%);
+  border-radius: 32px;
+  /* padding: 40px; */
+  position: relative;
+  overflow: hidden;
+  color: white;
+  
+}
+
+/* Floating gradient shapes (aesthetic blobs) */
+.banner::before,
+.banner::after {
+  content: "";
+  position: absolute;
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(0,199,124,0.7), transparent 70%);
+  filter: blur(100px);
+  border-radius: 50%;
+  z-index: 1;
+  
+}
+.banner::before {
+  top: -100px;
+  left: -100px;
+}
+.banner::after {
+  bottom: -120px;
+  right: -80px;
+}
+
+/* Content */
+.banner-content {
+  z-index: 2;
+  max-width: 80%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Title */
+.banner-title {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 800;
+  line-height: 1.2;
+  background: linear-gradient(90deg, #fff, #00c77c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Description */
+.banner-desc {
+  font-size: 1.2rem;
+  opacity: 0.9;
+  max-width: 80%;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Buttons */
+.banner-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.banner-btn {
+  padding: 14px 28px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.banner-btn.primary {
+  background: #00c77c;
+  color: black;
+  /* box-shadow: 0 8px 24px rgba(0, 199, 124, 0.4); */
+}
+.banner-btn.primary:hover {
+  background: #00e08e;
+}
+
+.banner-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+}
+.banner-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* START: Added CSS for Footer Links */
+.footer-nav {
+    display: flex;
+    gap: 30px; /* space between text links */
+    margin-bottom: 25px;
+}
+
+.footer-nav a {
+    color: grey;
+    text-decoration: none;
+    font-size: 16px;
+    transition: color 0.3s ease;
+}
+
+.footer-nav a:hover {
+    color: #00c77b; /* change color on hover */
+}
+
+.social-links {
+    display: flex;
+    gap: 25px; /* space between icons */
+    margin-bottom: 20px;
+}
+
+.social-links a {
+    color: grey;
+    font-size: 24px; /* size of the icons */
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.social-links a:hover {
+    color: #00c77b; /* change color on hover to match your theme */
+}
+/* END: Added CSS for Footer Links */
+
+
+/*Footer*/
+.footer{
+    width: 100%;
+    height: auto;
+    padding-bottom: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+.bigtext {
+  font-size: 312px;
+  font-weight: 800;
+  background: linear-gradient(to bottom, #00c77b67, transparent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text; /* for Firefox */
+  color: transparent;    /* fallback */
+}
+.copyright{
+    font-size: 14px;
+    color: grey;
 }

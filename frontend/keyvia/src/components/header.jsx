@@ -9,7 +9,7 @@ export default function Header(){
             <Link to={'/'} className="link">Home</Link>
             <Link to={'/dashboard'} className="link">Dashboard</Link>
             <div className="link">Documentation</div>
-            <div className="link">Developer</div>
+            <a href='https://abhishekjain.vercel.app' target='_blank' className="link">Developer</a>
         </div>
     </div>
 }
