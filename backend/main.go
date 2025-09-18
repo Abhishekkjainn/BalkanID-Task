@@ -24,12 +24,13 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/time/rate"
 )
 
-var conn *pgx.Conn
+var pool *pgxpool.Pool
 var cld *cloudinary.Cloudinary
 var jwtSecret []byte
 
@@ -103,14 +104,14 @@ func initConfig() {
 	fmt.Println("Configuration loaded successfully.")
 }
 
-// UPDATED: initDB now uses the configured DATABASE_URL
 func initDB() {
-	var err error
-	conn, err = pgx.Connect(context.Background(), appConfig.DatabaseURL)
-	if err != nil {
-		log.Fatal("Unable to connect to database: ", err)
-	}
-	fmt.Println("Connected to PostgreSQL!")
+    var err error
+    // Use pgxpool.New to create a connection pool
+    pool, err = pgxpool.New(context.Background(), appConfig.DatabaseURL)
+    if err != nil {
+        log.Fatal("Unable to create connection pool: ", err)
+    }
+    fmt.Println("Database connection pool created successfully!")
 }
 
 // initCloudinary is unchanged
@@ -204,7 +205,9 @@ func ensureFilesSchema() error {
 		`CREATE TABLE IF NOT EXISTS audit_logs (id BIGSERIAL PRIMARY KEY, user_id INT REFERENCES users(id) ON DELETE SET NULL, action VARCHAR(50) NOT NULL, details JSONB, created_at TIMESTAMPTZ DEFAULT NOW())`,
 		
         // THE FIX: This command safely adds the column if it's missing and does nothing otherwise.
+		
 		`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS target_id INT`,
+		`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS details JSONB`,
 
 		`CREATE INDEX IF NOT EXISTS user_files_owner_id_idx ON user_files(owner_id)`,
 		`CREATE INDEX IF NOT EXISTS physical_files_hash_idx ON physical_files(hash)`,
@@ -214,7 +217,7 @@ func ensureFilesSchema() error {
 	}
 
 	for _, s := range stmts {
-		if _, err := conn.Exec(context.Background(), s); err != nil {
+		if _, err := pool.Exec(context.Background(), s); err != nil {
 			return fmt.Errorf("failed to execute schema statement: %w", err)
 		}
 	}
@@ -236,7 +239,7 @@ func logAuditEvent(userID, targetID int, action string, details map[string]inter
 		} else {
 			userIDArg = nil
 		}
-		_, err = conn.Exec(context.Background(), `INSERT INTO audit_logs (user_id, action, target_id, details) VALUES ($1, $2, $3, $4)`, userIDArg, action, targetID, detailsJSON)
+		_, err = pool.Exec(context.Background(), `INSERT INTO audit_logs (user_id, action, target_id, details) VALUES ($1, $2, $3, $4)`, userIDArg, action, targetID, detailsJSON)
 		if err != nil {
 			log.Printf("ERROR: Failed to write audit log event: %v", err)
 		}
@@ -268,7 +271,7 @@ func verifyCredentialsAndGetUser(username, password string) (*AuthenticatedUser,
 	// ... (implementation is unchanged and correct)
 	user := &AuthenticatedUser{}
 	var storedHash string
-	err := conn.QueryRow(context.Background(), `SELECT id, password_hash, role FROM users WHERE username = $1`, username).Scan(&user.ID, &storedHash, &user.Role)
+	err := pool.QueryRow(context.Background(), `SELECT id, password_hash, role FROM users WHERE username = $1`, username).Scan(&user.ID, &storedHash, &user.Role)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
@@ -381,7 +384,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Failed to hash password")
 		return
 	}
-	_, err = conn.Exec(context.Background(), `INSERT INTO users (username, password_hash, name) VALUES ($1, $2, $3)`, req.Username, string(hash), req.Name)
+	_, err = pool.Exec(context.Background(), `INSERT INTO users (username, password_hash, name) VALUES ($1, $2, $3)`, req.Username, string(hash), req.Name)
 	if err != nil {
 		if strings.Contains(err.Error(), "23505") {
 			writeError(w, http.StatusConflict, "Username already exists")
@@ -425,8 +428,8 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var name string
-	_ = conn.QueryRow(context.Background(), `SELECT name FROM users WHERE id = $1`, user.ID).Scan(&name)
-	_, _ = conn.Exec(context.Background(), `UPDATE users SET last_login = NOW() WHERE id = $1`, user.ID)
+	_ = pool.QueryRow(context.Background(), `SELECT name FROM users WHERE id = $1`, user.ID).Scan(&name)
+	_, _ = pool.Exec(context.Background(), `UPDATE users SET last_login = NOW() WHERE id = $1`, user.ID)
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Login successful",
@@ -438,7 +441,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	// ... (implementation is unchanged and correct)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if err := conn.Ping(ctx); err != nil {
+	if err := pool.Ping(ctx); err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unhealthy", "error": err.Error()})
 		return
 	}
@@ -483,7 +486,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		hashStr := hex.EncodeToString(hash.Sum(nil))
 
 		var exists bool
-		err = conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM physical_files WHERE hash = $1)", hashStr).Scan(&exists)
+		err = pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM physical_files WHERE hash = $1)", hashStr).Scan(&exists)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Database error during quota check")
 			return
@@ -505,7 +508,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var currentUsageBytes int64
-	err := conn.QueryRow(ctx, `
+	err := pool.QueryRow(ctx, `
         SELECT COALESCE(SUM(pf.size), 0) FROM physical_files pf 
         WHERE pf.id IN (SELECT DISTINCT physical_file_id FROM user_files WHERE owner_id = $1)`, user.ID).Scan(&currentUsageBytes)
 	if err != nil {
@@ -570,7 +573,7 @@ func processAndUploadFile(userID int, header *multipart.FileHeader) (map[string]
 	}
 
 	ctx := context.Background()
-	tx, err := conn.Begin(ctx)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -690,7 +693,7 @@ func searchFilesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	finalQuery += ` ORDER BY uf.uploaded_at DESC`
 
-	rows, err := conn.Query(context.Background(), finalQuery, args...)
+	rows, err := pool.Query(context.Background(), finalQuery, args...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to query files: "+err.Error())
 		return
@@ -733,7 +736,7 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	tx, err := conn.Begin(ctx)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Could not start transaction")
 		return
@@ -781,6 +784,35 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"message": "File deleted successfully"})
 }
 
+func unshareFileHandler(w http.ResponseWriter, r *http.Request) {
+    conn, err := pool.Acquire(r.Context())
+    if err != nil {
+        writeError(w, http.StatusInternalServerError, "Could not acquire database connection")
+        return
+    }
+    defer conn.Release()
+
+    user := r.Context().Value(userContextKey).(*AuthenticatedUser)
+    vars := mux.Vars(r)
+    userFileID, err := strconv.Atoi(vars["id"])
+    if err != nil {
+        writeError(w, http.StatusBadRequest, "Invalid file ID")
+        return
+    }
+
+    // This is the core logic: Delete the share link for the current user.
+    // It doesn't touch the original file, only the share record.
+    _, err = conn.Exec(r.Context(), "DELETE FROM file_shares WHERE user_file_id = $1 AND recipient_id = $2", userFileID, user.ID)
+    if err != nil {
+        writeError(w, http.StatusInternalServerError, "Failed to remove share")
+        return
+    }
+
+    // Log this important action
+    logAuditEvent(user.ID, userFileID, "FILE_UNSHARE_SELF", nil)
+    writeJSON(w, http.StatusOK, map[string]string{"message": "File removed from your view"})
+}
+
 func shareFileHandler(w http.ResponseWriter, r *http.Request) {
 	// ... (implementation is unchanged and correct)
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
@@ -792,7 +824,7 @@ func shareFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	var ownerID int
 	var filename string
-	err = conn.QueryRow(context.Background(), "SELECT owner_id, filename FROM user_files WHERE id = $1", userFileID).Scan(&ownerID, &filename)
+	err = pool.QueryRow(context.Background(), "SELECT owner_id, filename FROM user_files WHERE id = $1", userFileID).Scan(&ownerID, &filename)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "File not found")
 		return
@@ -801,7 +833,7 @@ func shareFileHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "You are not the owner of this file")
 		return
 	}
-	_, err = conn.Exec(context.Background(), "UPDATE user_files SET is_public = true WHERE id = $1", userFileID)
+	_, err = pool.Exec(context.Background(), "UPDATE user_files SET is_public = true WHERE id = $1", userFileID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to make file public")
 		return
@@ -819,7 +851,7 @@ func publicDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := context.Background()
-	tx, err := conn.Begin(ctx)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Database error")
 		return
@@ -860,7 +892,7 @@ func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	tx, err := conn.Begin(ctx)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Database error")
 		return
@@ -933,7 +965,7 @@ func shareWithUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var recipientID int
-	err = conn.QueryRow(context.Background(), "SELECT id FROM users WHERE username = $1", req.ShareWithUsername).Scan(&recipientID)
+	err = pool.QueryRow(context.Background(), "SELECT id FROM users WHERE username = $1", req.ShareWithUsername).Scan(&recipientID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			writeError(w, http.StatusNotFound, "User to share with not found")
@@ -948,7 +980,7 @@ func shareWithUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	var ownerID int
 	var filename string
-	err = conn.QueryRow(context.Background(), "SELECT owner_id, filename FROM user_files WHERE id = $1", userFileID).Scan(&ownerID, &filename)
+	err = pool.QueryRow(context.Background(), "SELECT owner_id, filename FROM user_files WHERE id = $1", userFileID).Scan(&ownerID, &filename)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "File not found")
 		return
@@ -957,7 +989,7 @@ func shareWithUserHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "You are not the owner of this file")
 		return
 	}
-	_, err = conn.Exec(context.Background(), `INSERT INTO file_shares (user_file_id, recipient_id) VALUES ($1, $2)`, userFileID, recipientID)
+	_, err = pool.Exec(context.Background(), `INSERT INTO file_shares (user_file_id, recipient_id) VALUES ($1, $2)`, userFileID, recipientID)
 	if err != nil {
 		if strings.Contains(err.Error(), "23505") {
 			writeJSON(w, http.StatusConflict, map[string]string{"message": "File already shared with this user"})
@@ -974,12 +1006,12 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
 	ctx := context.Background()
 	var originalSize, deduplicatedSize int64
-	err := conn.QueryRow(ctx, `SELECT COALESCE(SUM(pf.size), 0) FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id WHERE uf.owner_id = $1`, user.ID).Scan(&originalSize)
+	err := pool.QueryRow(ctx, `SELECT COALESCE(SUM(pf.size), 0) FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id WHERE uf.owner_id = $1`, user.ID).Scan(&originalSize)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Error calculating original size")
 		return
 	}
-	err = conn.QueryRow(ctx, `SELECT COALESCE(SUM(pf.size), 0) FROM physical_files pf WHERE pf.id IN (SELECT DISTINCT physical_file_id FROM user_files WHERE owner_id = $1)`, user.ID).Scan(&deduplicatedSize)
+	err = pool.QueryRow(ctx, `SELECT COALESCE(SUM(pf.size), 0) FROM physical_files pf WHERE pf.id IN (SELECT DISTINCT physical_file_id FROM user_files WHERE owner_id = $1)`, user.ID).Scan(&deduplicatedSize)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Error calculating deduplicated size")
 		return
@@ -995,7 +1027,7 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 		Count int       `json:"count"`
 	}
 	var uploadsTimeline []UploadsByDay
-	rows, err := conn.Query(ctx, `SELECT DATE_TRUNC('day', uploaded_at)::DATE AS day, COUNT(*) FROM user_files WHERE owner_id = $1 GROUP BY day ORDER BY day`, user.ID)
+	rows, err := pool.Query(ctx, `SELECT DATE_TRUNC('day', uploaded_at)::DATE AS day, COUNT(*) FROM user_files WHERE owner_id = $1 GROUP BY day ORDER BY day`, user.ID)
 	if err == nil {
 		for rows.Next() {
 			var u UploadsByDay
@@ -1009,7 +1041,7 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 		Count    int    `json:"count"`
 	}
 	var mimeTypeCounts []MimeTypeCount
-	rows, err = conn.Query(ctx, `SELECT pf.mime_type, COUNT(uf.id) FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id WHERE uf.owner_id = $1 GROUP BY pf.mime_type`, user.ID)
+	rows, err = pool.Query(ctx, `SELECT pf.mime_type, COUNT(uf.id) FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id WHERE uf.owner_id = $1 GROUP BY pf.mime_type`, user.ID)
 	if err == nil {
 		for rows.Next() {
 			var m MimeTypeCount
@@ -1023,7 +1055,7 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 		DownloadCount int    `json:"downloadCount"`
 	}
 	var topDownloaded []TopFile
-	rows, err = conn.Query(ctx, `SELECT filename, download_count FROM user_files WHERE owner_id = $1 ORDER BY download_count DESC LIMIT 5`, user.ID)
+	rows, err = pool.Query(ctx, `SELECT filename, download_count FROM user_files WHERE owner_id = $1 ORDER BY download_count DESC LIMIT 5`, user.ID)
 	if err == nil {
 		for rows.Next() {
 			var t TopFile
@@ -1039,7 +1071,7 @@ func adminListAllFilesHandler(w http.ResponseWriter, r *http.Request) {
 	// ... (implementation is unchanged and correct)
 	baseQuery := `SELECT uf.id, uf.filename, pf.size, pf.mime_type, uf.is_public, uf.download_count, uf.uploaded_at, pf.storage_url, u_owner.name AS owner_name FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id JOIN users u_owner ON uf.owner_id = u_owner.id`
 	finalQuery := baseQuery + ` ORDER BY uf.uploaded_at DESC`
-	rows, err := conn.Query(context.Background(), finalQuery)
+	rows, err := pool.Query(context.Background(), finalQuery)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to query all files: "+err.Error())
 		return
@@ -1072,7 +1104,7 @@ func main() {
 	initConfig()
 	initDB()
 	initCloudinary()
-	defer conn.Close(context.Background())
+	defer pool.Close()
 
 	if err := ensureFilesSchema(); err != nil {
 		log.Fatal("Failed to ensure schemas: ", err)
@@ -1099,6 +1131,7 @@ func main() {
 	api.HandleFunc("/files/{id:[0-9]+}", deleteFileHandler).Methods("DELETE")
 	api.HandleFunc("/files/{id:[0-9]+}/share-public", shareFileHandler).Methods("POST")
 	api.HandleFunc("/files/{id:[0-9]+}/share-with", shareWithUserHandler).Methods("POST")
+	api.HandleFunc("/files/{id:[0-9]+}/share", unshareFileHandler).Methods("DELETE") // to delete only from one
 	api.HandleFunc("/files/{id:[0-9]+}/download", authenticatedDownloadHandler).Methods("GET")
 
 	// Admin-only routes
