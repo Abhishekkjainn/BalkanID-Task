@@ -113,24 +113,51 @@ function DashboardContent() {
 
     return (
         <div className="dashboard">
-            <div className="sidebar">
-                <div className="dcompany">
-                    <img src="/bolt.png" alt="Company Logo" className="dcomplogo" />
-                    <div className="dcomptag">Keyvia</div>
+            <div className="bottombar">
+                <div className={`blink ${activeView === 'all' ? 'bactive' : ''}`} onClick={() => setActiveView('all')}>
+                    <img src="/allfiles.png" alt="" className="bimg" />
+                    <div className="btag">All Files</div>
                 </div>
+                <div className={`blink ${activeView === 'shared' ? 'bactive' : ''}`} onClick={() => setActiveView('shared')}>
+                    <img src="/shared.png" alt="" className="bimg" />
+                    <div className="btag">Shared Files</div>
+                </div>
+                <div className={`blink ${activeView === 'recieved' ? 'bactive' : ''}`} onClick={() => setActiveView('recieved')}>
+                    <img src="/recieved.png" alt="" className="bimg" />
+                    <div className="btag">Recieved Files</div>
+                </div>
+                <div className={`blink ${activeView === 'analytics' ? 'bactive' : ''}`} onClick={() => setActiveView('analytics')}>
+                    <img src="/analytics.png" alt="" className="bimg" />
+                    <div className="btag">Analytics</div>
+                </div>
+            </div>
+            <div className="bottomheader">
+                <div className="bheadcompany">
+                    <img src="/bolt.png" alt="" className="bheadlogo" />
+                    <div className="bheadtag">Keyvia</div>
+                </div>
+                <div className="searchbar">
+                    <input type="text" name="search" id="snid" className="sinp" placeholder='Search File Name' onChange={(e) => handleFilterChange({ filename: e.target.value })}/>
+                    <div className="sbutton">
+                        <img src="/searchicon2.png" alt="" className="sicon" />
+                    </div>
+                </div>
+                <div className="actions">
+                    <div className="action">
+                        <img src="/user.png" alt="" className="actionicon" />
+                    </div>
+                    <div className="action">
+                        <img src="/logout.png" alt="" className="actionicon" onClick={logout} />
+                    </div>
+                </div>
+            </div>
+            <div className="uploadbutton" onClick={() => setIsUploadModalOpen(true)}>
+                <img src="/upload.png" alt="" className="upicon" />
+                <div className="uptag">Upload File</div>
+            </div>
+            <div className="sidebar">
+                
                 <div className="dmenu">
-                    <div className="dmenulinks">
-                        <div className={`dlink ${activeView === 'all' ? 'active' : ''}`} onClick={() => setActiveView('all')}>
-                            <img src="/allfiles.png" alt="" className="dlinkicon" />
-                            <div className="dlinktag">All Files</div>
-                        </div>
-                        <div className={`dlink ${activeView === 'analytics' ? 'active' : ''}`} onClick={() => setActiveView('analytics')}>
-                        <img src="/analytics.png" alt="" className="dlinkicon" />
-                        <div className="dlinktag">Analytics</div>
-                    </div>
-                        {/* Add other links here later */}
-                    </div>
-
                     {stats && (
                         <StorageIndicator 
                             currentUsage={stats.deduplicatedUsageBytes}
@@ -138,38 +165,16 @@ function DashboardContent() {
                         />
                     )}
                     <div className="profile">
-                        <img src="/avatar.png" alt="Avatar" className="avatar" />
                         <div className="pinfo">
                             <div className="username">{user?.name || '...'}</div>
                             <div className="useremail">{user?.username || '...'}</div>
                         </div>
-                        <button onClick={logout} className="logout-button" title="Logout">
-                            <img src="/logout.png" alt="Logout" className='logout-button-img'/>
-                        </button>
                     </div>
                 </div>
             </div>
             <div className="mainbar">
                 <div className="topmainbar">
                     <div className="mainbar-title">{viewTitles[activeView]}</div>
-                    
-                    {/* NEW: Upload button in the header */}
-                    <button className="main-upload-btn" onClick={() => setIsUploadModalOpen(true)}>
-                        Upload Files
-                    </button>
-                    
-
-                    {/* Search bar placeholder */}
-                    <div className="search-bar">
-                        <img src="/search.png" alt="Search" className="search-icon" />
-                        {/* WIRE UP THE SEARCH BAR */}
-                        <input 
-                            type="text" 
-                            className="search-input" 
-                            placeholder="Search by filename..."
-                            onChange={(e) => handleFilterChange({ filename: e.target.value })}
-                        />
-                    </div>
                 </div>
 
                 {/* ADD THE FILTERING UI */}
@@ -182,7 +187,6 @@ function DashboardContent() {
 
                 <div className="main-content">
                     {renderActiveView()}
-                    {/* <AllFilesView openShareModal={openShareModal} /> */}
                 </div>
             </div>
 
@@ -209,3 +213,5 @@ export default function Dashboard() {
         </FileProvider>
     );
 }
+
+
