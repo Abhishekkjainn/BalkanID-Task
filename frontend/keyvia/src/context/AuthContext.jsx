@@ -1,13 +1,26 @@
-// src/context/AuthContext.jsx
-
 import { createContext, useContext, useState, useEffect } from 'react';
-import { login as apiLogin } from '../services/api'; // Note: no file extension needed
+import { login as apiLogin } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  // NEW: Add a loading state for the initial auth check
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check localStorage for existing session
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      setUser(JSON.parse(storedUser));
+    }
+    // Finished checking, set loading to false
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     if (user && token) {
@@ -34,10 +47,11 @@ export function AuthProvider({ children }) {
     setToken(null);
   };
 
-  const authValue = { user, token, login, logout };
+  // Expose the new loading state in the context value
+  const value = { user, token, loading, login, logout, isAuthenticated: !!token };
 
   return (
-    <AuthContext.Provider value={authValue}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

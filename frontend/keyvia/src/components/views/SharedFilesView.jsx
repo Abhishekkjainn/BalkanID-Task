@@ -1,0 +1,1 @@
+export default function SharedFilesView() { return <div>Shared Files Coming Soon</div>; }

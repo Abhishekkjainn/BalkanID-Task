@@ -1,0 +1,1 @@
+export default function ReceivedFilesView() { return <div>Received Files Coming Soon</div>; }
