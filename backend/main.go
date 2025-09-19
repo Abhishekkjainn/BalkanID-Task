@@ -10,13 +10,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"regexp"
 
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
@@ -29,6 +33,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/time/rate"
 )
+
+// sanitizeCloudinaryURL takes a full SDK URL and converts it to the simple, direct format.
+// This is the key insight you discovered.
+func sanitizeCloudinaryURL(url string) string {
+    // This regex finds the /<resource_type>/<delivery_type>/ segment
+    // (e.g., /image/upload/, /raw/upload/, /video/private/)
+    re := regexp.MustCompile(`/(image|video|raw)/(upload|private|authenticated)/`)
+    // And replaces it with a single "/", effectively removing it.
+    return re.ReplaceAllString(url, "/")
+}
 
 var pool *pgxpool.Pool
 var cld *cloudinary.Cloudinary
@@ -104,6 +118,50 @@ func initConfig() {
 	fmt.Println("Configuration loaded successfully.")
 }
 
+func initMimeTypes() {
+    // --- Documents ---
+    // Modern Microsoft Office
+    mime.AddExtensionType(".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    mime.AddExtensionType(".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    mime.AddExtensionType(".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    // Older Microsoft Office
+    mime.AddExtensionType(".doc", "application/msword")
+    mime.AddExtensionType(".xls", "application/vnd.ms-excel")
+    mime.AddExtensionType(".ppt", "application/vnd.ms-powerpoint")
+    // Other Common Documents
+    mime.AddExtensionType(".pdf", "application/pdf")
+    mime.AddExtensionType(".rtf", "application/rtf")
+    mime.AddExtensionType(".txt", "text/plain; charset=utf-8")
+
+    // --- Archives ---
+    mime.AddExtensionType(".zip", "application/zip")
+    mime.AddExtensionType(".rar", "application/vnd.rar")
+    mime.AddExtensionType(".7z", "application/x-7z-compressed")
+    mime.AddExtensionType(".tar", "application/x-tar")
+    mime.AddExtensionType(".gz", "application/gzip")
+    
+    // --- Common Media Types ---
+    // Audio
+    mime.AddExtensionType(".mp3", "audio/mpeg")
+    mime.AddExtensionType(".wav", "audio/wav")
+    mime.AddExtensionType(".ogg", "audio/ogg")
+    // Video
+    mime.AddExtensionType(".mp4", "video/mp4")
+    mime.AddExtensionType(".webm", "video/webm")
+    mime.AddExtensionType(".mov", "video/quicktime")
+    mime.AddExtensionType(".mkv", "video/x-matroska")
+    // Images
+    mime.AddExtensionType(".svg", "image/svg+xml")
+    mime.AddExtensionType(".webp", "image/webp")
+
+    // --- Data Formats ---
+    mime.AddExtensionType(".json", "application/json")
+    mime.AddExtensionType(".csv", "text/csv")
+    mime.AddExtensionType(".xml", "application/xml")
+
+    fmt.Println("Custom MIME types registered successfully.")
+}
+
 func initDB() {
     var err error
     // Use pgxpool.New to create a connection pool
@@ -131,70 +189,6 @@ func initCloudinary() {
 	fmt.Println("Cloudinary client initialized successfully!")
 }
 
-// Schema is unchanged and complete
-// func ensureFilesSchema() error {
-// 	// ... (schema statements are unchanged and correct)
-// 	stmts := []string{
-// 		`CREATE TABLE IF NOT EXISTS users (
-//             id SERIAL PRIMARY KEY,
-//             username VARCHAR(50) UNIQUE NOT NULL,
-//             password_hash TEXT NOT NULL,
-//             name VARCHAR(100) NOT NULL,
-//             role VARCHAR(20) DEFAULT 'user' NOT NULL,
-//             last_login TIMESTAMPTZ,
-//             created_at TIMESTAMPTZ DEFAULT NOW()
-//         )`,
-// 		`CREATE UNIQUE INDEX IF NOT EXISTS users_username_key ON users (username)`,
-// 		`CREATE TABLE IF NOT EXISTS physical_files (
-//             id SERIAL PRIMARY KEY,
-//             hash CHAR(64) UNIQUE NOT NULL,
-//             storage_url TEXT NOT NULL,
-//             public_id TEXT NOT NULL,
-//             size BIGINT NOT NULL,
-//             mime_type VARCHAR(100) NOT NULL,
-//             ref_count INT DEFAULT 1 NOT NULL,
-//             created_at TIMESTAMPTZ DEFAULT NOW()
-//         )`,
-// 		`CREATE TABLE IF NOT EXISTS user_files (
-//             id SERIAL PRIMARY KEY,
-//             owner_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-//             physical_file_id INT NOT NULL REFERENCES physical_files(id) ON DELETE RESTRICT,
-//             filename VARCHAR(255) NOT NULL,
-//             is_public BOOLEAN DEFAULT FALSE NOT NULL,
-//             download_count INT DEFAULT 0 NOT NULL,
-//             uploaded_at TIMESTAMPTZ DEFAULT NOW()
-//         )`,
-// 		`CREATE TABLE IF NOT EXISTS file_shares (
-//             id SERIAL PRIMARY KEY,
-//             user_file_id INT NOT NULL REFERENCES user_files(id) ON DELETE CASCADE,
-//             recipient_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-//             shared_at TIMESTAMPTZ DEFAULT NOW(),
-//             UNIQUE(user_file_id, recipient_id)
-//         )`,
-// 		`CREATE TABLE IF NOT EXISTS audit_logs (
-//             id BIGSERIAL PRIMARY KEY,
-//             user_id INT REFERENCES users(id) ON DELETE SET NULL,
-//             action VARCHAR(50) NOT NULL,
-//             target_id INT,
-//             details JSONB,
-//             created_at TIMESTAMPTZ DEFAULT NOW()
-//         )`,
-// 		`CREATE INDEX IF NOT EXISTS user_files_owner_id_idx ON user_files(owner_id)`,
-// 		`CREATE INDEX IF NOT EXISTS physical_files_hash_idx ON physical_files(hash)`,
-// 		`CREATE INDEX IF NOT EXISTS file_shares_recipient_id_idx ON file_shares(recipient_id)`,
-// 		`CREATE INDEX IF NOT EXISTS audit_logs_user_id_idx ON audit_logs(user_id)`,
-// 		`CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs(action)`,
-// 	}
-
-// 	for _, s := range stmts {
-// 		if _, err := conn.Exec(context.Background(), s); err != nil {
-// 			return fmt.Errorf("failed to execute schema statement: %w", err)
-// 		}
-// 	}
-// 	return nil
-// }
-
-// UPDATED: This function is now more robust and handles schema updates.
 func ensureFilesSchema() error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, password_hash TEXT NOT NULL, name VARCHAR(100) NOT NULL, role VARCHAR(20) DEFAULT 'user' NOT NULL, last_login TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -254,6 +248,16 @@ func writeJSON(w http.ResponseWriter, status int, body interface{}) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
+func getResourceTypeFromMIME(mimeType string) string {
+    if strings.HasPrefix(mimeType, "image/") {
+        return "image"
+    }
+    if strings.HasPrefix(mimeType, "video/") {
+        return "video"
+    }
+    return "raw" // Default for PDFs, ZIPs, etc.
+}
+
 func writeError(w http.ResponseWriter, status int, message string) {
 	// ... (implementation is unchanged and correct)
 	writeJSON(w, status, map[string]string{"error": message})
@@ -281,40 +285,44 @@ func verifyCredentialsAndGetUser(username, password string) (*AuthenticatedUser,
 	return user, nil
 }
 
-// authMiddleware is unchanged
+
 func authMiddleware(next http.Handler) http.Handler {
-	// ... (implementation is unchanged and correct)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			writeError(w, http.StatusUnauthorized, "Authorization header required")
-			return
-		}
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // --- START OF CHANGE ---
+        
+        // 1. First, try to get the token from the Authorization header.
+        tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		if tokenString == authHeader {
-			writeError(w, http.StatusUnauthorized, "Invalid token format")
-			return
-		}
+        // 2. If the header is empty, try to get it from a URL query parameter.
+        if tokenString == "" {
+            tokenString = r.URL.Query().Get("token")
+        }
+        
+        // --- END OF CHANGE ---
 
-		claims := &Claims{}
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
-		})
+        if tokenString == "" {
+            writeError(w, http.StatusUnauthorized, "Authorization token required")
+            return
+        }
 
-		if err != nil || !token.Valid {
-			writeError(w, http.StatusUnauthorized, "Invalid or expired token")
-			return
-		}
+        claims := &Claims{}
+        token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+            return jwtSecret, nil
+        })
 
-		user := &AuthenticatedUser{
-			ID:   claims.UserID,
-			Role: claims.Role,
-		}
+        if err != nil || !token.Valid {
+            writeError(w, http.StatusUnauthorized, "Invalid or expired token")
+            return
+        }
 
-		ctx := context.WithValue(r.Context(), userContextKey, user)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+        user := &AuthenticatedUser{
+            ID:   claims.UserID,
+            Role: claims.Role,
+        }
+
+        ctx := context.WithValue(r.Context(), userContextKey, user)
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
 }
 
 // UPDATED: Rate Limiting Middleware now uses configured values
@@ -538,107 +546,140 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]interface{}{"message": "Files uploaded successfully", "uploadedCount": len(uploadedFiles), "files": uploadedFiles})
 }
 
-// processAndUploadFile is unchanged
+// The final, perfected upload function with accurate MIME type detection.
 func processAndUploadFile(userID int, header *multipart.FileHeader) (map[string]interface{}, error) {
-	// ... (implementation is unchanged and correct)
-	file, err := header.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	buffer := make([]byte, 512)
-	n, err := file.Read(buffer)
-	if err != nil && err != io.EOF {
-		return nil, fmt.Errorf("could not read file header for MIME type detection: %w", err)
-	}
-	detectedMimeType := http.DetectContentType(buffer[:n])
-	declaredMimeType := header.Header.Get("Content-Type")
+    file, err := header.Open()
+    if err != nil {
+        return nil, fmt.Errorf("could not open file header: %w", err)
+    }
+    defer file.Close()
 
-	if !strings.HasPrefix(declaredMimeType, strings.Split(detectedMimeType, "/")[0]) && declaredMimeType != "application/octet-stream" {
-		if !strings.HasPrefix(detectedMimeType, strings.Split(declaredMimeType, "/")[0]) {
-			return nil, fmt.Errorf("MIME type mismatch. Declared: %s, Detected: %s", declaredMimeType, detectedMimeType)
-		}
-	}
+    // --- Accurate MIME Type Detection ---
+    var finalMimeType string
 
-	if _, err := file.Seek(0, 0); err != nil {
-		return nil, fmt.Errorf("could not seek file after MIME type check: %w", err)
-	}
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return nil, err
-	}
-	hashStr := hex.EncodeToString(hash.Sum(nil))
-	if _, err := file.Seek(0, 0); err != nil {
-		return nil, err
-	}
+    // 1. Prioritize the file extension for specific types (.docx, .xlsx, .txt).
+    // This is the most reliable method for user-friendly types.
+    ext := filepath.Ext(header.Filename)
+    finalMimeType = mime.TypeByExtension(ext)
 
-	ctx := context.Background()
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-	var physicalFileID int
-	var wasDeduplicated bool
-	err = tx.QueryRow(ctx, "SELECT id FROM physical_files WHERE hash = $1", hashStr).Scan(&physicalFileID)
-	if err == pgx.ErrNoRows {
-		wasDeduplicated = false
-		uploadResult, uploadErr := cld.Upload.Upload(ctx, file, uploader.UploadParams{ResourceType: "auto"})
-		if uploadErr != nil {
-			return nil, fmt.Errorf("cloudinary upload failed: %w", uploadErr)
-		}
-		insertErr := tx.QueryRow(ctx, `INSERT INTO physical_files (hash, storage_url, public_id, size, mime_type) VALUES ($1, $2, $3, $4, $5) RETURNING id`, hashStr, uploadResult.SecureURL, uploadResult.PublicID, header.Size, detectedMimeType).Scan(&physicalFileID)
-		if insertErr != nil {
-			return nil, fmt.Errorf("failed to insert new physical file record: %w", insertErr)
-		}
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to check for existing file hash: %w", err)
-	} else {
-		wasDeduplicated = true
-		_, updateErr := tx.Exec(ctx, "UPDATE physical_files SET ref_count = ref_count + 1 WHERE id = $1", physicalFileID)
-		if updateErr != nil {
-			return nil, fmt.Errorf("failed to update reference count for duplicate file: %w", updateErr)
-		}
-	}
-	var userFileID int
-	var uploadedAt time.Time
-	err = tx.QueryRow(ctx, `INSERT INTO user_files (owner_id, physical_file_id, filename) VALUES ($1, $2, $3) RETURNING id, uploaded_at`, userID, physicalFileID, header.Filename).Scan(&userFileID, &uploadedAt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create user file reference: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
+    // 2. If the extension is unknown (or untrusted), fall back to content sniffing.
+    if finalMimeType == "" {
+        buffer := make([]byte, 512)
+        _, err = file.Read(buffer)
+        if err != nil && err != io.EOF {
+            return nil, fmt.Errorf("could not read file header for MIME detection: %w", err)
+        }
+        finalMimeType = http.DetectContentType(buffer)
+    }
+    // --- End of MIME Logic ---
 
-	logAuditEvent(userID, userFileID, "FILE_UPLOAD", map[string]interface{}{"filename": header.Filename, "size": header.Size, "deduplicated": wasDeduplicated})
 
-	return map[string]interface{}{"userFileId": userFileID, "filename": header.Filename, "size": header.Size, "uploadedAt": uploadedAt, "wasDeduplicated": wasDeduplicated}, nil
+    // 3. Determine the Cloudinary resource_type using our accurate MIME type.
+    resourceType := getResourceTypeFromMIME(finalMimeType)
+
+    // 4. CRITICAL: Rewind the file stream before any further reading.
+    if _, err := file.Seek(0, 0); err != nil {
+        return nil, fmt.Errorf("could not seek file after MIME check: %w", err)
+    }
+
+    // 5. Calculate the file's hash for deduplication.
+    hash := sha256.New()
+    if _, err := io.Copy(hash, file); err != nil {
+        return nil, fmt.Errorf("could not hash file: %w", err)
+    }
+    hashStr := hex.EncodeToString(hash.Sum(nil))
+
+    // 6. CRITICAL: Rewind the file stream again before the final upload.
+    if _, err := file.Seek(0, 0); err != nil {
+        return nil, fmt.Errorf("could not seek file before upload: %w", err)
+    }
+
+    ctx := context.Background()
+    tx, err := pool.Begin(ctx)
+    if err != nil {
+        return nil, err
+    }
+    defer tx.Rollback(ctx)
+
+    var physicalFileID int
+    var wasDeduplicated bool
+    err = tx.QueryRow(ctx, "SELECT id FROM physical_files WHERE hash = $1", hashStr).Scan(&physicalFileID)
+
+    if err == pgx.ErrNoRows {
+        wasDeduplicated = false
+        
+        // 7. PERFECTED PARAMS: Set all necessary options for a successful public upload.
+        uploadParams := uploader.UploadParams{
+            ResourceType: resourceType, // Use the correct type (image, video, or raw)
+            Type:         "upload",     // Ensure the file is public
+            Moderation:   "manual",     // Prevent automatic moderation from blocking it
+        }
+
+        uploadResult, uploadErr := cld.Upload.Upload(ctx, file, uploadParams)
+        if uploadErr != nil {
+            return nil, fmt.Errorf("cloudinary upload failed: %w", uploadErr)
+        }
+
+        // 8. Store the ACCURATE finalMimeType in the database.
+        insertErr := tx.QueryRow(ctx, `INSERT INTO physical_files (hash, storage_url, public_id, size, mime_type) VALUES ($1, $2, $3, $4, $5) RETURNING id`, hashStr, uploadResult.SecureURL, uploadResult.PublicID, header.Size, finalMimeType).Scan(&physicalFileID)
+        if insertErr != nil {
+            return nil, fmt.Errorf("failed to insert new physical file record: %w", insertErr)
+        }
+    } else if err != nil {
+        return nil, fmt.Errorf("failed to check for existing file hash: %w", err)
+    } else {
+        wasDeduplicated = true
+        _, updateErr := tx.Exec(ctx, "UPDATE physical_files SET ref_count = ref_count + 1 WHERE id = $1", physicalFileID)
+        if updateErr != nil {
+            return nil, fmt.Errorf("failed to update reference count for duplicate file: %w", updateErr)
+        }
+    }
+    
+    // --- This final part remains unchanged as it's already correct ---
+    var userFileID int
+    var uploadedAt time.Time
+    err = tx.QueryRow(ctx, `INSERT INTO user_files (owner_id, physical_file_id, filename) VALUES ($1, $2, $3) RETURNING id, uploaded_at`, userID, physicalFileID, header.Filename).Scan(&userFileID, &uploadedAt)
+    if err != nil {
+        return nil, fmt.Errorf("failed to create user file reference: %w", err)
+    }
+
+    if err := tx.Commit(ctx); err != nil {
+        return nil, fmt.Errorf("failed to commit transaction: %w", err)
+    }
+
+    logAuditEvent(userID, userFileID, "FILE_UPLOAD", map[string]interface{}{"filename": header.Filename, "size": header.Size, "deduplicated": wasDeduplicated})
+
+    return map[string]interface{}{"userFileId": userFileID, "filename": header.Filename, "size": header.Size, "uploadedAt": uploadedAt, "wasDeduplicated": wasDeduplicated}, nil
 }
 
-// UPDATED: searchFilesHandler now supports filtering by ownerName
-func searchFilesHandler(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
-	var req struct {
-		Filters struct {
-			Filename  *string    `json:"filename"`
-			OwnerName *string    `json:"ownerName"` // NEW
-			MimeType  *string    `json:"mimeType"`
-			MinSize   *int64     `json:"minSize"`
-			MaxSize   *int64     `json:"maxSize"`
-			StartDate *time.Time `json:"startDate"`
-			EndDate   *time.Time `json:"endDate"`
-		} `json:"filters"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid JSON body for searching/filtering")
-		return
-	}
 
-	baseQuery := `
+
+// UPDATED: searchFilesHandler now includes ref_count for deduplication status
+func searchFilesHandler(w http.ResponseWriter, r *http.Request) {
+    user := r.Context().Value(userContextKey).(*AuthenticatedUser)
+    var req struct {
+        Filters struct {
+            Filename  *string    `json:"filename"`
+            OwnerName *string    `json:"ownerName"`
+            MimeType  *string    `json:"mimeType"`
+            MinSize   *int64     `json:"minSize"`
+            MaxSize   *int64     `json:"maxSize"`
+            StartDate *time.Time `json:"startDate"`
+            EndDate   *time.Time `json:"endDate"`
+        } `json:"filters"`
+    }
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        writeError(w, http.StatusBadRequest, "Invalid JSON body for searching/filtering")
+        return
+    }
+
+    baseQuery := `
         SELECT
             uf.id, uf.filename, pf.size, pf.mime_type, uf.is_public,
             uf.download_count, uf.uploaded_at, pf.storage_url,
             u_owner.name AS owner_name,
+            -- THIS IS THE FIX: Select the reference count from the physical file
+            pf.ref_count,
             CASE WHEN uf.owner_id = $1 THEN NULL ELSE u_owner.name END AS shared_by
         FROM user_files uf
         JOIN physical_files pf ON uf.physical_file_id = pf.id
@@ -646,21 +687,21 @@ func searchFilesHandler(w http.ResponseWriter, r *http.Request) {
         LEFT JOIN file_shares fs ON uf.id = fs.user_file_id
         WHERE (uf.owner_id = $1 OR fs.recipient_id = $1)
     `
-	args := []interface{}{user.ID}
-	conditions := []string{}
-	argID := 2
+    args := []interface{}{user.ID}
+    conditions := []string{}
+    argID := 2
 
-	if req.Filters.Filename != nil && *req.Filters.Filename != "" {
+    // ... (rest of the filtering logic is unchanged)
+    if req.Filters.Filename != nil && *req.Filters.Filename != "" {
 		conditions = append(conditions, fmt.Sprintf("uf.filename ILIKE $%d", argID))
 		args = append(args, "%"+*req.Filters.Filename+"%")
 		argID++
 	}
-	if req.Filters.OwnerName != nil && *req.Filters.OwnerName != "" { // NEW
+	if req.Filters.OwnerName != nil && *req.Filters.OwnerName != "" {
 		conditions = append(conditions, fmt.Sprintf("u_owner.name ILIKE $%d", argID))
 		args = append(args, "%"+*req.Filters.OwnerName+"%")
 		argID++
 	}
-	// ... (rest of the filters are unchanged)
 	if req.Filters.MimeType != nil && *req.Filters.MimeType != "" {
 		conditions = append(conditions, fmt.Sprintf("pf.mime_type = $%d", argID))
 		args = append(args, *req.Filters.MimeType)
@@ -687,41 +728,47 @@ func searchFilesHandler(w http.ResponseWriter, r *http.Request) {
 		argID++
 	}
 
-	finalQuery := baseQuery
-	if len(conditions) > 0 {
-		finalQuery += " AND " + strings.Join(conditions, " AND ")
-	}
-	finalQuery += ` ORDER BY uf.uploaded_at DESC`
+    finalQuery := baseQuery
+    if len(conditions) > 0 {
+        finalQuery += " AND " + strings.Join(conditions, " AND ")
+    }
+    finalQuery += ` ORDER BY uf.uploaded_at DESC`
 
-	rows, err := pool.Query(context.Background(), finalQuery, args...)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to query files: "+err.Error())
-		return
-	}
-	defer rows.Close()
+    rows, err := pool.Query(context.Background(), finalQuery, args...)
+    if err != nil {
+        writeError(w, http.StatusInternalServerError, "Failed to query files: "+err.Error())
+        return
+    }
+    defer rows.Close()
 
-	type FileInfo struct {
-		ID            int       `json:"id"`
-		Filename      string    `json:"filename"`
-		Size          int64     `json:"size"`
-		MimeType      string    `json:"mimeType"`
-		IsPublic      bool      `json:"isPublic"`
-		DownloadCount int       `json:"downloadCount"`
-		UploadedAt    time.Time `json:"uploadedAt"`
-		URL           string    `json:"url"`
-		OwnerName     string    `json:"ownerName"`
-		SharedBy      *string   `json:"sharedBy,omitempty"`
-	}
+    type FileInfo struct {
+        ID            int       `json:"id"`
+        Filename      string    `json:"filename"`
+        Size          int64     `json:"size"`
+        MimeType      string    `json:"mimeType"`
+        IsPublic      bool      `json:"isPublic"`
+        DownloadCount int       `json:"downloadCount"`
+        UploadedAt    time.Time `json:"uploadedAt"`
+        URL           string    `json:"url"`
+        OwnerName     string    `json:"ownerName"`
+        // THIS IS THE FIX: Add the new field to the response struct
+        RefCount      int       `json:"refCount"`
+        SharedBy      *string   `json:"sharedBy,omitempty"`
+    }
 	var files []FileInfo
-	for rows.Next() {
-		var f FileInfo
-		if err := rows.Scan(&f.ID, &f.Filename, &f.Size, &f.MimeType, &f.IsPublic, &f.DownloadCount, &f.UploadedAt, &f.URL, &f.OwnerName, &f.SharedBy); err != nil {
-			writeError(w, http.StatusInternalServerError, "Failed to scan file data: "+err.Error())
-			return
-		}
-		files = append(files, f)
-	}
-	writeJSON(w, http.StatusOK, files)
+    for rows.Next() {
+        var f FileInfo
+        if err := rows.Scan(&f.ID, &f.Filename, &f.Size, &f.MimeType, &f.IsPublic, &f.DownloadCount, &f.UploadedAt, &f.URL, &f.OwnerName, &f.RefCount, &f.SharedBy); err != nil {
+            writeError(w, http.StatusInternalServerError, "Failed to scan file data: "+err.Error())
+            return
+        }
+
+        // THE FIX: Sanitize the URL before adding it to the list.
+        f.URL = sanitizeCloudinaryURL(f.URL)
+
+        files = append(files, f)
+    }
+    writeJSON(w, http.StatusOK, files)
 }
 
 // Other handlers (delete, share, public download, etc.) are unchanged and correct
@@ -881,73 +928,153 @@ func publicDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, storageURL, http.StatusFound)
 }
 
-// NEW: Authenticated download handler for private/shared files
+
+// The final, perfected download handler.
+// It correctly authenticates the user and generates the simple, direct Cloudinary URL.
+// func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
+//     user := r.Context().Value(userContextKey).(*AuthenticatedUser)
+//     vars := mux.Vars(r)
+//     userFileID, err := strconv.Atoi(vars["id"])
+//     if err != nil {
+//         writeError(w, http.StatusBadRequest, "Invalid file ID")
+//         return
+//     }
+
+//     ctx := context.Background()
+//     tx, err := pool.Begin(ctx)
+//     if err != nil {
+//         writeError(w, http.StatusInternalServerError, "Database error")
+//         return
+//     }
+//     defer tx.Rollback(ctx)
+
+//     var ownerID int
+//     var isShared bool
+//     var storageURL, filename string // We no longer need mimeType here
+
+//     // The query remains the same, fetching the necessary details.
+//     query := `
+//         SELECT
+//             uf.owner_id,
+//             pf.storage_url,
+//             uf.filename,
+//             EXISTS (SELECT 1 FROM file_shares WHERE user_file_id = $1 AND recipient_id = $2)
+//         FROM user_files uf
+//         JOIN physical_files pf ON uf.physical_file_id = pf.id
+//         WHERE uf.id = $1
+//     `
+//     err = tx.QueryRow(ctx, query, userFileID, user.ID).Scan(&ownerID, &storageURL, &filename, &isShared)
+
+//     if err != nil {
+//         if err == pgx.ErrNoRows {
+//             writeError(w, http.StatusNotFound, "File not found")
+//             return
+//         }
+//         writeError(w, http.StatusInternalServerError, "Database error on scan")
+//         return
+//     }
+
+//     // Authorize: allow if owner, or if shared, or if user is an admin.
+//     if ownerID != user.ID && !isShared && user.Role != "admin" {
+//         writeError(w, http.StatusForbidden, "You do not have permission to download this file")
+//         return
+//     }
+
+//     // THE FIX: Use the sanitizer to create the simple, direct URL.
+//     // This single line replaces all the previous complex logic.
+//     correctDownloadURL := sanitizeCloudinaryURL(storageURL)
+
+//     // Increment download count.
+//     _, err = tx.Exec(ctx, "UPDATE user_files SET download_count = download_count + 1 WHERE id = $1", userFileID)
+//     if err != nil {
+//         // This is a non-critical error, so we just log it and continue.
+//         log.Printf("Failed to increment download count for file %d: %v", userFileID, err)
+//     }
+
+//     if err := tx.Commit(ctx); err != nil {
+//         writeError(w, http.StatusInternalServerError, "Database error on commit")
+//         return
+//     }
+
+//     // Log the successful download event.
+//     logAuditEvent(user.ID, userFileID, "FILE_DOWNLOAD_AUTH", map[string]interface{}{"filename": filename})
+
+//     // Redirect the user's browser to the final, correct URL for the download.
+//     http.Redirect(w, r, correctDownloadURL, http.StatusFound)
+// }
+
+
+// The final, perfected download handler.
+// It correctly authenticates the user and generates the simple, direct Cloudinary URL.
 func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
-	vars := mux.Vars(r)
-	userFileID, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid file ID")
-		return
-	}
+    user := r.Context().Value(userContextKey).(*AuthenticatedUser)
+    vars := mux.Vars(r)
+    userFileID, err := strconv.Atoi(vars["id"])
+    if err != nil {
+        writeError(w, http.StatusBadRequest, "Invalid file ID")
+        return
+    }
 
-	ctx := context.Background()
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Database error")
-		return
-	}
-	defer tx.Rollback(ctx)
+    ctx := context.Background()
+    tx, err := pool.Begin(ctx)
+    if err != nil {
+        writeError(w, http.StatusInternalServerError, "Database error")
+        return
+    }
+    defer tx.Rollback(ctx)
 
-	var ownerID int
-	var isShared bool
-	var storageURL, filename string
+    var ownerID int
+    var isShared bool
+    var storageURL, filename string // We no longer need mimeType here
 
-	// Check if the user is the owner OR the file is shared with them
-	query := `
+    query := `
         SELECT
             uf.owner_id,
             pf.storage_url,
-			uf.filename,
+            uf.filename,
             EXISTS (SELECT 1 FROM file_shares WHERE user_file_id = $1 AND recipient_id = $2)
         FROM user_files uf
         JOIN physical_files pf ON uf.physical_file_id = pf.id
         WHERE uf.id = $1
     `
-	err = tx.QueryRow(ctx, query, userFileID, user.ID).Scan(&ownerID, &storageURL, &filename, &isShared)
+    err = tx.QueryRow(ctx, query, userFileID, user.ID).Scan(&ownerID, &storageURL, &filename, &isShared)
 
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			writeError(w, http.StatusNotFound, "File not found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "Database error")
-		return
-	}
+    if err != nil {
+        if err == pgx.ErrNoRows {
+            writeError(w, http.StatusNotFound, "File not found")
+            return
+        }
+        writeError(w, http.StatusInternalServerError, "Database error on scan")
+        return
+    }
 
-	// Authorize: allow if owner, or if shared, or if user is an admin
-	if ownerID != user.ID && !isShared && user.Role != "admin" {
-		writeError(w, http.StatusForbidden, "You do not have permission to download this file")
-		return
-	}
+    if ownerID != user.ID && !isShared && user.Role != "admin" {
+        writeError(w, http.StatusForbidden, "You do not have permission to download this file")
+        return
+    }
 
-	// Increment download count
-	_, err = tx.Exec(ctx, "UPDATE user_files SET download_count = download_count + 1 WHERE id = $1", userFileID)
-	if err != nil {
-		log.Printf("Failed to increment download count for file %d: %v", userFileID, err) // Non-critical error
-	}
+    // THE FIX: Use the sanitizer to create the simple, direct URL.
+    // This single line replaces all the previous complex logic.
+    correctDownloadURL := sanitizeCloudinaryURL(storageURL)
 
-	if err := tx.Commit(ctx); err != nil {
-		writeError(w, http.StatusInternalServerError, "Database error on commit")
-		return
-	}
+    // Increment download count.
+    _, err = tx.Exec(ctx, "UPDATE user_files SET download_count = download_count + 1 WHERE id = $1", userFileID)
+    if err != nil {
+        log.Printf("Failed to increment download count for file %d: %v", userFileID, err)
+    }
 
-	// Log audit event
-	logAuditEvent(user.ID, userFileID, "FILE_DOWNLOAD_AUTH", map[string]interface{}{"filename": filename})
+    if err := tx.Commit(ctx); err != nil {
+        writeError(w, http.StatusInternalServerError, "Database error on commit")
+        return
+    }
 
-	// Redirect to the actual file URL
-	http.Redirect(w, r, storageURL, http.StatusFound)
+    logAuditEvent(user.ID, userFileID, "FILE_DOWNLOAD_AUTH", map[string]interface{}{"filename": filename})
+
+    // Redirect the user's browser to the final, correct URL for the download.
+    http.Redirect(w, r, correctDownloadURL, http.StatusFound)
 }
+
+
 func shareWithUserHandler(w http.ResponseWriter, r *http.Request) {
 	// ... (implementation is unchanged and correct)
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
@@ -1104,6 +1231,7 @@ func main() {
 	initConfig()
 	initDB()
 	initCloudinary()
+	initMimeTypes()
 	defer pool.Close()
 
 	if err := ensureFilesSchema(); err != nil {
