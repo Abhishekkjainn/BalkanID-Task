@@ -1,28 +1,34 @@
-// Helper to format bytes, which we can reuse
+// src/components/StorageIndicator.js
+import React from 'react';
+
+// Helper function to format bytes into a readable string
 const formatBytes = (bytes, decimals = 2) => {
-    if (!+bytes) return '0 Bytes';
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
 export default function StorageIndicator({ currentUsage, maxStorage }) {
-    const usagePercent = maxStorage > 0 ? (currentUsage / maxStorage) * 100 : 0;
+  const usagePercentage = Math.min((currentUsage / maxStorage) * 100, 100);
 
-    return (
-        <div className="storage-indicator">
-            <div className="storage-info">
-                <span>Storage</span>
-                <span>{formatBytes(currentUsage)} / {formatBytes(maxStorage)}</span>
-            </div>
-            <div className="progress-bar-background">
-                <div 
-                    className="progress-bar-fill" 
-                    style={{ width: `${usagePercent}%` }}
-                ></div>
-            </div>
-        </div>
-    );
+  return (
+    <div className="storage-indicator">
+      <div className="storage-header">
+        <h3 className="storage-title">Cloud Storage</h3>
+        
+        <span className="storage-usage-text">
+          {formatBytes(currentUsage)} of {formatBytes(maxStorage)} used
+        </span>
+      </div>
+      <div className="progress-bar-background">
+        <div
+          className="progress-bar-fill"
+          style={{ width: `${usagePercentage}%` }}
+        />
+      </div>
+    </div>
+  );
 }

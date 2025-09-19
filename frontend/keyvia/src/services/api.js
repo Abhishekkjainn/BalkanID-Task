@@ -1,4 +1,5 @@
 const API_BASE_URL = 'http://localhost:8080'; // Or use an environment variable
+import { sniffMimeFromBytes } from '../utils/mimeSniff';
 
 // A helper function to handle API responses
 async function handleResponse(response) {
@@ -50,10 +51,33 @@ export async function searchFiles(token, filters = {}) {
  * @returns {Promise<object>} - The server's response on completion.
  */
 export function uploadFiles(token, files, onProgress) {
-  return new Promise((resolve, reject) => {
-    const formData = new FormData();
+  return new Promise(async (resolve, reject) => {
+const formData = new FormData();
+
+    // 3. PROCESS FILES ASYNCHRONOUSLY TO READ THEIR BYTES
     for (const file of files) {
-      formData.append('files', file);
+      // Create a copy of the file to set the correct MIME type
+      let fileToSend = file;
+
+      try {
+        // Read the first few bytes of the file for sniffing
+        const buffer = await file.slice(0, 128).arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        const sniffed = sniffMimeFromBytes(bytes);
+
+        // If we sniffed a valid type, use it. Otherwise, use the browser's default.
+        const mimeType = sniffed.mime || file.type || 'application/octet-stream';
+        
+        // Create a new File object with the corrected type.
+        // This is crucial for the browser to send the right Content-Type header.
+        fileToSend = new File([file], file.name, { type: mimeType });
+        console.log(`Uploading '${file.name}' with detected MIME type: ${mimeType}`);
+
+      } catch (e) {
+        console.error("Could not sniff MIME type for file:", file.name, e);
+      }
+      
+      formData.append('files', fileToSend);
     }
 
     const xhr = new XMLHttpRequest();

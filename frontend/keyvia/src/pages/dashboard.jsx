@@ -17,6 +17,8 @@ import ShareModal from '../components/ShareModal';
 import FilterBar from '../components/filters/FilterBar'; // New import
 import ActiveFilters from '../components/filters/ActiveFilters'; // New import
 import StorageIndicator from '../components/StorageIndicator'; 
+import ProfileModal from '../components/ProfileModal';
+import LogoutModal from '../components/LogoutModal';
 
 
 function DashboardContent() {
@@ -28,8 +30,11 @@ function DashboardContent() {
     const { token } = useAuth();
     const { filters, setFilters } = useFiles();
 
+
     const [selectedFile, setSelectedFile] = useState(null);
     const [stats, setStats] = useState(null);
+    const [prof , setProf] = useState(false);
+    const [log , setLog] = useState(false);
 
     const openShareModal = (file) => {
         setSelectedFile(file);
@@ -143,11 +148,11 @@ function DashboardContent() {
                     </div>
                 </div>
                 <div className="actions">
-                    <div className="action">
+                    <div className="action" onClick={() => setProf(true)}>
                         <img src="/user.png" alt="" className="actionicon" />
                     </div>
                     <div className="action">
-                        <img src="/logout.png" alt="" className="actionicon" onClick={logout} />
+                        <img src="/logout.png" alt="" className="actionicon" onClick={()=> setLog(true)} />
                     </div>
                 </div>
             </div>
@@ -155,35 +160,15 @@ function DashboardContent() {
                 <img src="/upload.png" alt="" className="upicon" />
                 <div className="uptag">Upload File</div>
             </div>
-            <div className="sidebar">
-                
-                <div className="dmenu">
-                    {stats && (
-                        <StorageIndicator 
-                            currentUsage={stats.deduplicatedUsageBytes}
-                            maxStorage={10 * 1024 * 1024} // NOTE: This should ideally come from the backend in the future
-                        />
-                    )}
-                    <div className="profile">
-                        <div className="pinfo">
-                            <div className="username">{user?.name || '...'}</div>
-                            <div className="useremail">{user?.username || '...'}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div className="mainbar">
-                <div className="topmainbar">
-                    <div className="mainbar-title">{viewTitles[activeView]}</div>
-                </div>
 
-                {/* ADD THE FILTERING UI */}
+            <div className="mainbar">
+                {/* ADD THE FILTERING UI
                 {activeView !== 'analytics' && (
                     <div className="filters-section">
                         <FilterBar onFilterChange={handleFilterChange} />
                         <ActiveFilters activeFilters={filters} onClearFilter={clearFilter} />
                     </div>
-                )}
+                )} */}
 
                 <div className="main-content">
                     {renderActiveView()}
@@ -201,6 +186,9 @@ function DashboardContent() {
                 onClose={closeShareModal}
                 file={selectedFile}
             />
+            
+            <ProfileModal user={user} isOpen={prof} onClose={()=>setProf(false)} stats={stats}/>
+            <LogoutModal logout={logout} isOpen={log} onClose={()=> setLog(false)}/>
         </div>
     );
 }

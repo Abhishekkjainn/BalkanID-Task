@@ -78,7 +78,7 @@ body::selection{
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 100;
+    z-index: 1000;
 }
 .company{
     display: flex;
@@ -618,50 +618,6 @@ body::selection{
 
 /* Add these styles to your main CSS file */
 
-/* --- FILE GRID & CARD STYLES --- */
-.file-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
-}
-
-.file-card {
-    background-color: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 16px;
-    display: flex;
-    align-items: center;
-    transition: border-color 0.2s ease;
-}
-.file-card:hover {
-    border-color: #8b949e;
-}
-
-.file-card-icon img {
-    width: 40px;
-    margin-right: 16px;
-}
-
-.file-card-details {
-    flex-grow: 1;
-    overflow: hidden;
-}
-
-.file-card-name {
-    font-weight: 600;
-    color: #c9d1d9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin: 0;
-}
-
-.file-card-meta {
-    font-size: 12px;
-    color: #8b949e;
-    margin: 4px 0 0;
-}
 
 /* --- PLACEHOLDER --- */
 .placeholder-container {
@@ -732,7 +688,7 @@ body::selection{
     background-color: #161b22;
     border: 1px solid #30363d;
     border-radius: 12px;
-    width: 90%;
+    width: max-content;
     max-width: 600px;
     display: flex;
     flex-direction: column;
@@ -1152,11 +1108,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     margin: 0 16px 16px;
     padding-top: 16px;
     border-top: 1px solid #30363d;
+    display: flex;
+    justify-content: start;
+    align-items: start;
+    flex-direction: column;
 }
 
 .storage-info {
     display: flex;
     justify-content: space-between;
+    flex-direction: column;
     font-size: 12px;
     color: #8b949e;
     margin-bottom: 8px;
@@ -1354,4 +1315,428 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     color: black;
     margin-left: 12px;
     
+}
+
+/*Profile Modal*/
+/* src/components/ProfileModal.css */
+
+/* --- CSS Variables for easy theming --- */
+:root {
+  --modal-bg: #161b22;
+  --modal-border: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #7d8590;
+  --accent-primary: #58a6ff;
+  --accent-primary-hover: #79c0ff;
+  --button-secondary-bg: #21262d;
+  --button-secondary-border: #30363d;
+  --progress-bar-bg: #0d1117;
+  --progress-bar-fill: linear-gradient(90deg, #3081f7, #58a6ff);
+}
+
+/* --- Modal Overlay & Card --- */
+.profile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(13, 17, 23, 0.8);
+  backdrop-filter: blur(20px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.profile-modal-card {
+  background-color: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  border-radius: 12px;
+  width: 90%;
+  max-width: max-content;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* --- Close Button --- */
+.modal-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--button-secondary-bg);
+  border: 1px solid var(--modal-border);
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+.modal-close-btn:hover {
+  background-color: #30363d;
+  color: var(--text-primary);
+}
+
+/* --- Profile Header --- */
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid var(--modal-border);
+  object-fit: cover;
+}
+.profile-name {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+.profile-username {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* --- Profile Content --- */
+.profile-bio {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 8px 0;
+}
+.profile-content-separator {
+  width: 100%;
+  height: 1px;
+  background-color: var(--modal-border);
+  margin: 8px 0;
+}
+
+/* --- Storage Indicator --- */
+.storage-indicator {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.storage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.storage-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+.storage-usage-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: 20px;
+}
+.progress-bar-background {
+  width: 100%;
+  height: 10px;
+  background-color: var(--progress-bar-bg);
+  border: 1px solid var(--modal-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background-color: #00c77b;
+  border-radius: 10px;
+  transition: width 0.5s ease-in-out;
+}
+
+/* --- Action Buttons --- */
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+.profile-button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+.profile-button.primary {
+  background-color: var(--accent-primary);
+  color: #fff;
+  border-color: var(--accent-primary);
+}
+.profile-button.primary:hover {
+  background-color: var(--accent-primary-hover);
+  border-color: var(--accent-primary-hover);
+}
+.profile-button.secondary {
+  background-color: var(--button-secondary-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--modal-border);
+}
+.profile-button.secondary:hover {
+  border-color: var(--text-secondary);
+}
+
+
+/* --- Animations --- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/*Files */
+
+
+/* --- FILE GRID & CARD STYLES --- */
+
+
+.filesdiv {
+    width: 100%; /* Use full width for better spacing control */
+    padding: 20px; /* Use padding instead of margin to contain the grid */
+    box-sizing: border-box; /* Ensures padding is included in the total width */
+
+    /* --- Grid Layout --- */
+    display: grid;
+    /* This is the key for a responsive grid. It creates as many columns as can
+       fit, with a minimum width of 260px each. They will grow to fill the
+       space evenly. */
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 4px; /* This creates consistent spacing between all cards */
+}
+
+.file-card {
+    /* REMOVED: width: 20%; */
+    /* REMOVED: margin: 8px; */
+    /* The grid container now controls the width and spacing. */
+
+    position: relative;
+    aspect-ratio: 1/1; /* This maintains the square shape */
+    background-color: #111418;
+    border-radius: 16px;
+    border: 1px solid rgba(128, 128, 128, 0.8);
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #c9d1d9;
+    background-size: cover;
+    background-position: center;
+    cursor: pointer;
+}
+
+.main-content{
+    margin-top: 80px;
+    margin-bottom: 160px;
+}
+
+.file-card {
+    position: relative;
+    aspect-ratio: 1/1;
+    background-color: #111418;
+    border-radius: 16px;
+    border: 1px solid rgba(128, 128, 128,0.8);
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #c9d1d9;
+    background-size: cover;
+    background-position: center;
+    cursor: pointer;
+    margin: 8px;
+}
+
+.file-card:hover {
+    transform: translateY(0px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+    border-color: rgba(128, 128, 128);
+    transition: 0.3s linear;
+}
+
+.file-icon-center {
+    color: #7d8590;
+    transition: transform 0.3s ease;
+}
+
+.file-card:hover .file-icon-center {
+    transform: scale(1.1);
+}
+
+.card-pills {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 2;
+}
+
+.pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: rgba(22, 27, 34, 0.6);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.pill.status-pill.public { color: #28d38cff; }
+.pill.status-pill.private { color: #ffffffff; }
+
+/* --- Bottom Overlay --- */
+.card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px;
+    background: linear-gradient(180deg, transparent 0%, rgba(16, 18, 24, 0.5) 40%, rgba(16, 18, 24, 0.7) 60%, rgba(16, 18, 24, 0.95) 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 1;
+}
+
+.filename {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e6edf3;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-meta {
+    font-size: 12px;
+    color: #c0c0c0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.meta-divider { color: #30363d; }
+.dedup-status.deduped { color: #3fb950; }
+
+/* --- Action Buttons --- */
+.file-card-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* Hide actions by default */
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease, max-height 0.3s ease, margin-top 0.3s ease;
+}
+
+/* Show actions when the 'visible' class is added */
+.file-card-actions.visible {
+    opacity: 1;
+    max-height: 36px; /* Height of one button */
+    margin-top: 8px; /* Space between info and buttons */
+}
+
+.action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background-color: rgba(48, 54, 61, 0.7);
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.action-btn:hover:not(:disabled) {
+    background-color: #30363d;
+    color: #fff;
+}
+
+.action-btn.delete-btn:hover:not(:disabled) {
+    background-color: rgba(218, 54, 51, 0.8);
+    color: #fff;
+}
+
+.action-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
+
+/* Add this to your main CSS file */
+
+.pdf-preview-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* You can reuse your existing spinner or a simple loader */
+/* .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+} */
+
+@keyframes spin { 
+  to { transform: rotate(360deg); } 
 }

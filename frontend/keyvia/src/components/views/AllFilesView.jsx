@@ -25,7 +25,7 @@ export default function AllFilesView({ openShareModal }) {
     }
 
     return (
-        <div className="file-grid">
+        <div className="filesdiv">
             {files.map(file => (
                 <FileCard key={file.id} file={file} onShare={() => openShareModal(file)} />
             ))}
