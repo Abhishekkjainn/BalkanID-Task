@@ -461,7 +461,6 @@ body::selection{
   position: relative;
   overflow: hidden;
   color: white;
-  
 }
 
 /* Floating gradient shapes (aesthetic blobs) */
@@ -3020,6 +3019,97 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     text-align: left;
     margin-bottom: 24px;
 }
+
+.bannerdiv{
+    width: 100%;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 60px;
+}
+.banner {
+  width: 90%;
+  height: max-content;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at top left, #00c77c, #111 70%);
+  border-radius: 32px;
+  /* padding: 40px; */
+  position: relative;
+  overflow: hidden;
+  padding-bottom: 60px;
+  padding-top: 40px;
+  color: white;
+}
+
+/* Content */
+.banner-content {
+  z-index: 2;
+  max-width: 80%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Title */
+.banner-title {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 800;
+  line-height: 1.2;
+  background: linear-gradient(90deg, #fff, #00c77c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Description */
+.banner-desc {
+  font-size: 15px;
+  opacity: 0.9;
+  max-width: 80%;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Buttons */
+.banner-actions {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.banner-btn {
+  padding: 14px 28px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.banner-btn.primary {
+  background: #00c77c;
+  color: black;
+  /* box-shadow: 0 8px 24px rgba(0, 199, 124, 0.4); */
+}
+.banner-btn.primary:hover {
+  background: #00e08e;
+}
+
+.banner-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+}
+.banner-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 
 .footer-nav {
     display: flex;
