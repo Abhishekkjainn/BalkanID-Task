@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { FileProvider,useFiles } from '../context/FileContext';
+import { Link } from 'react-router-dom';
 
 import { useToast } from '../context/ToastContext'; // Import useToast
 import * as api from '../services/api'; // Import api service
@@ -144,7 +145,6 @@ function DashboardContent() {
     return (
         <div className="dashboard">
             {loading && <ProgressBar progress={progress} />}
-            {/* {loading && <Loader/>} */}
             <div className="bottombar">
                 <div className={`blink ${activeView === 'all' ? 'bactive' : ''}`} onClick={() => setActiveView('all')}>
                     <img src="/allfiles.png" alt="" className="bimg" />
@@ -166,12 +166,16 @@ function DashboardContent() {
                     <img src="/history.png" alt="" className="bimg" />
                     <div className="btag">History</div>
                 </div>
+                <div className={`blink rblink`} onClick={() => setIsUploadModalOpen(true)}>
+                    <img src="/rupload.png" alt="" className="bimg" />
+                    <div className="btag">Upload</div>
+                </div>
             </div>
             <div className="bottomheader">
-                <div className="bheadcompany">
+                <Link to={'/'} className="bheadcompany">
                     <img src="/bolt.png" alt="" className="bheadlogo" />
                     <div className="bheadtag">Keyvia</div>
-                </div>
+                </Link>
                 <div className="searchbar">
                     <input type="text" name="search" id="snid" className="sinp" placeholder='Search File Name' onChange={(e) => handleFilterChange({ filename: e.target.value })}/>
                     <div className="sbutton">

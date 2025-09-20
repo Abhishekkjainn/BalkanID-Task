@@ -29,7 +29,7 @@ body::selection{
     bottom: 0;
     background-color: rgba(0, 0, 0, 0.214);
     backdrop-filter: blur(20px);
-    z-index: 1000;
+    z-index: 1001;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -2785,6 +2785,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     text-align: left;
     width: 100%;
 }
+.rblink{
+  display: none;
+}
 
 /* ==========================================================================
    Responsive Breakpoint
@@ -3121,5 +3124,104 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   text-align: center;
   width: 100%;
   font-size: 25vw;
+}
+
+/*Login page*/
+.leftdiv {
+    width: 0;
+    height:0;
+    margin-left: 0px;
+    background-color: transparent; /* light gray */
+    background: none;
+    background-size: 0;
+    background-position: center;
+    border-radius: 0;
+}
+.rightdiv{
+  width: 100%;
+}
+
+
+.bottombar{
+    width: max-content;
+    height: auto;
+    padding: 4px;
+    background-color: #0000002a;
+    backdrop-filter: blur(40px);
+    border-radius: 14px;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: 0;
+    z-index: 100;
+    border: 1.5px solid rgba(106, 106, 106, 0.242);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.blink{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 2px;
+    border: 1px solid transparent;
+}
+.rblink{
+  display: flex;
+}
+.blink:hover{
+    cursor: pointer;
+    background-color: rgba(0, 0, 0, 0.411);
+    border: 1px solid rgba(128, 128, 128, 0.242);
+    backdrop-filter: blur(20px);
+    transition: 0.3s linear;
+}
+.bactive{
+    cursor: pointer;
+    background-color: rgba(0, 0, 0, 0.411);
+    border: 1px solid rgba(128, 128, 128, 0.242);
+    backdrop-filter: blur(20px);
+}
+.bimg{
+    width: 16px;
+}
+.btag{
+    margin-left: 8px;
+    font-size: 12px;
+    display: none;
+}
+.uploadbutton{
+  display: none;
+}
+.main-content{
+  margin-bottom: 160px;
+}
+.filesdiv{
+  margin-bottom: 80px;
+  margin-top: 60px;
+}
+.searchbar{
+  display: none;
+}
+.filters-section{
+  display: none;
+}
+.history-container {
+  margin-top: 80px;
+}
+.action-title{
+  font-size: 12px;
+}
+.detail-value{
+  font-size: 10px;
+}
+.detail-label{
+  font-size: 10px;
+}
+.history-timestamp{
+  font-size: 12px;
 }
 }
