@@ -751,7 +751,6 @@ func searchFilesHandler(w http.ResponseWriter, r *http.Request) {
         UploadedAt    time.Time `json:"uploadedAt"`
         URL           string    `json:"url"`
         OwnerName     string    `json:"ownerName"`
-        // THIS IS THE FIX: Add the new field to the response struct
         RefCount      int       `json:"refCount"`
         SharedBy      *string   `json:"sharedBy,omitempty"`
     }
@@ -769,6 +768,83 @@ func searchFilesHandler(w http.ResponseWriter, r *http.Request) {
         files = append(files, f)
     }
     writeJSON(w, http.StatusOK, files)
+}
+
+// listMySharedFilesHandler retrieves all files owned by the current user that are either public or shared with other users.
+func listMySharedFilesHandler(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
+	ctx := context.Background()
+
+	// This powerful query does all the work:
+	// 1. It only selects files owned by the current user (uf.owner_id = $1).
+	// 2. It filters for files that are either public OR have at least one entry in the file_shares table.
+	// 3. It uses jsonb_agg to collect all the usernames of users the file is shared with into a single JSON array.
+	query := `
+		SELECT
+			uf.id,
+			uf.filename,
+			pf.size,
+			pf.mime_type,
+			uf.is_public,
+			uf.download_count,
+			uf.uploaded_at,
+			pf.storage_url,
+			u_owner.name AS owner_name,
+			COALESCE(
+				(SELECT jsonb_agg(jsonb_build_object('id', u_recipient.id, 'username', u_recipient.username, 'name', u_recipient.name))
+				 FROM file_shares fs
+				 JOIN users u_recipient ON fs.recipient_id = u_recipient.id
+				 WHERE fs.user_file_id = uf.id),
+				'[]'::jsonb
+			) AS shared_with
+		FROM user_files uf
+		JOIN physical_files pf ON uf.physical_file_id = pf.id
+		JOIN users u_owner ON uf.owner_id = u_owner.id
+		WHERE
+			uf.owner_id = $1
+			AND (
+				uf.is_public = TRUE
+				OR EXISTS (SELECT 1 FROM file_shares fs WHERE fs.user_file_id = uf.id)
+			)
+		ORDER BY uf.uploaded_at DESC;
+	`
+
+	rows, err := pool.Query(ctx, query, user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to query shared files: "+err.Error())
+		return
+	}
+	defer rows.Close()
+
+	type SharedFileInfo struct {
+		ID            int             `json:"id"`
+		Filename      string          `json:"filename"`
+		Size          int64           `json:"size"`
+		MimeType      string          `json:"mimeType"`
+		IsPublic      bool            `json:"isPublic"`
+		DownloadCount int             `json:"downloadCount"`
+		UploadedAt    time.Time       `json:"uploadedAt"`
+		URL           string          `json:"url"`
+		OwnerName     string          `json:"ownerName"`
+		SharedWith    json.RawMessage `json:"sharedWith"` // Use json.RawMessage to hold the JSON array from the DB
+	}
+
+	var files []SharedFileInfo
+	for rows.Next() {
+		var f SharedFileInfo
+		if err := rows.Scan(
+			&f.ID, &f.Filename, &f.Size, &f.MimeType, &f.IsPublic,
+			&f.DownloadCount, &f.UploadedAt, &f.URL, &f.OwnerName, &f.SharedWith,
+		); err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to scan shared file data: "+err.Error())
+			return
+		}
+		// Sanitize the URL just like in the search handler
+		f.URL = sanitizeCloudinaryURL(f.URL)
+		files = append(files, f)
+	}
+
+	writeJSON(w, http.StatusOK, files)
 }
 
 // Other handlers (delete, share, public download, etc.) are unchanged and correct
@@ -889,6 +965,7 @@ func shareFileHandler(w http.ResponseWriter, r *http.Request) {
 	publicLink := fmt.Sprintf("%s://%s/files/public/%d", "http", r.Host, userFileID)
 	writeJSON(w, http.StatusOK, map[string]string{"message": "File is now public", "publicLink": publicLink})
 }
+
 func publicDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	// ... (implementation is unchanged and correct)
 	vars := mux.Vars(r)
@@ -928,84 +1005,6 @@ func publicDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, storageURL, http.StatusFound)
 }
 
-
-// The final, perfected download handler.
-// It correctly authenticates the user and generates the simple, direct Cloudinary URL.
-// func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
-//     user := r.Context().Value(userContextKey).(*AuthenticatedUser)
-//     vars := mux.Vars(r)
-//     userFileID, err := strconv.Atoi(vars["id"])
-//     if err != nil {
-//         writeError(w, http.StatusBadRequest, "Invalid file ID")
-//         return
-//     }
-
-//     ctx := context.Background()
-//     tx, err := pool.Begin(ctx)
-//     if err != nil {
-//         writeError(w, http.StatusInternalServerError, "Database error")
-//         return
-//     }
-//     defer tx.Rollback(ctx)
-
-//     var ownerID int
-//     var isShared bool
-//     var storageURL, filename string // We no longer need mimeType here
-
-//     // The query remains the same, fetching the necessary details.
-//     query := `
-//         SELECT
-//             uf.owner_id,
-//             pf.storage_url,
-//             uf.filename,
-//             EXISTS (SELECT 1 FROM file_shares WHERE user_file_id = $1 AND recipient_id = $2)
-//         FROM user_files uf
-//         JOIN physical_files pf ON uf.physical_file_id = pf.id
-//         WHERE uf.id = $1
-//     `
-//     err = tx.QueryRow(ctx, query, userFileID, user.ID).Scan(&ownerID, &storageURL, &filename, &isShared)
-
-//     if err != nil {
-//         if err == pgx.ErrNoRows {
-//             writeError(w, http.StatusNotFound, "File not found")
-//             return
-//         }
-//         writeError(w, http.StatusInternalServerError, "Database error on scan")
-//         return
-//     }
-
-//     // Authorize: allow if owner, or if shared, or if user is an admin.
-//     if ownerID != user.ID && !isShared && user.Role != "admin" {
-//         writeError(w, http.StatusForbidden, "You do not have permission to download this file")
-//         return
-//     }
-
-//     // THE FIX: Use the sanitizer to create the simple, direct URL.
-//     // This single line replaces all the previous complex logic.
-//     correctDownloadURL := sanitizeCloudinaryURL(storageURL)
-
-//     // Increment download count.
-//     _, err = tx.Exec(ctx, "UPDATE user_files SET download_count = download_count + 1 WHERE id = $1", userFileID)
-//     if err != nil {
-//         // This is a non-critical error, so we just log it and continue.
-//         log.Printf("Failed to increment download count for file %d: %v", userFileID, err)
-//     }
-
-//     if err := tx.Commit(ctx); err != nil {
-//         writeError(w, http.StatusInternalServerError, "Database error on commit")
-//         return
-//     }
-
-//     // Log the successful download event.
-//     logAuditEvent(user.ID, userFileID, "FILE_DOWNLOAD_AUTH", map[string]interface{}{"filename": filename})
-
-//     // Redirect the user's browser to the final, correct URL for the download.
-//     http.Redirect(w, r, correctDownloadURL, http.StatusFound)
-// }
-
-
-// The final, perfected download handler.
-// It correctly authenticates the user and generates the simple, direct Cloudinary URL.
 func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
     user := r.Context().Value(userContextKey).(*AuthenticatedUser)
     vars := mux.Vars(r)
@@ -1074,7 +1073,6 @@ func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, correctDownloadURL, http.StatusFound)
 }
 
-
 func shareWithUserHandler(w http.ResponseWriter, r *http.Request) {
 	// ... (implementation is unchanged and correct)
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
@@ -1128,71 +1126,185 @@ func shareWithUserHandler(w http.ResponseWriter, r *http.Request) {
 	logAuditEvent(user.ID, userFileID, "FILE_SHARE_USER", map[string]interface{}{"filename": filename, "recipientUsername": req.ShareWithUsername})
 	writeJSON(w, http.StatusCreated, map[string]string{"message": fmt.Sprintf("File successfully shared with %s", req.ShareWithUsername)})
 }
+
 func analyticsHandler(w http.ResponseWriter, r *http.Request) {
-	// ... (implementation is unchanged and correct)
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
 	ctx := context.Background()
-	var originalSize, deduplicatedSize int64
-	err := pool.QueryRow(ctx, `SELECT COALESCE(SUM(pf.size), 0) FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id WHERE uf.owner_id = $1`, user.ID).Scan(&originalSize)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Error calculating original size")
-		return
-	}
-	err = pool.QueryRow(ctx, `SELECT COALESCE(SUM(pf.size), 0) FROM physical_files pf WHERE pf.id IN (SELECT DISTINCT physical_file_id FROM user_files WHERE owner_id = $1)`, user.ID).Scan(&deduplicatedSize)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Error calculating deduplicated size")
-		return
-	}
-	storageSavings := originalSize - deduplicatedSize
-	var savingsPercentage float64
-	if originalSize > 0 {
-		savingsPercentage = (float64(storageSavings) / float64(originalSize)) * 100
-	}
-	storageStats := map[string]interface{}{"originalUsageBytes": originalSize, "deduplicatedUsageBytes": deduplicatedSize, "savingsBytes": storageSavings, "savingsPercentage": savingsPercentage}
-	type UploadsByDay struct {
-		Day   time.Time `json:"day"`
-		Count int       `json:"count"`
-	}
-	var uploadsTimeline []UploadsByDay
-	rows, err := pool.Query(ctx, `SELECT DATE_TRUNC('day', uploaded_at)::DATE AS day, COUNT(*) FROM user_files WHERE owner_id = $1 GROUP BY day ORDER BY day`, user.ID)
-	if err == nil {
-		for rows.Next() {
-			var u UploadsByDay
-			rows.Scan(&u.Day, &u.Count)
-			uploadsTimeline = append(uploadsTimeline, u)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	// This map will hold all our analytics results.
+	results := make(map[string]interface{})
+
+	// --- 1. Storage Statistics ---
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var originalSize, deduplicatedSize int64
+		_ = pool.QueryRow(ctx, `SELECT COALESCE(SUM(pf.size), 0) FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id WHERE uf.owner_id = $1`, user.ID).Scan(&originalSize)
+		_ = pool.QueryRow(ctx, `SELECT COALESCE(SUM(pf.size), 0) FROM physical_files pf WHERE pf.id IN (SELECT DISTINCT physical_file_id FROM user_files WHERE owner_id = $1)`, user.ID).Scan(&deduplicatedSize)
+		
+		storageSavings := originalSize - deduplicatedSize
+		var savingsPercentage float64
+		if originalSize > 0 {
+			savingsPercentage = (float64(storageSavings) / float64(originalSize)) * 100
 		}
-		rows.Close()
-	}
-	type MimeTypeCount struct {
-		MimeType string `json:"mimeType"`
-		Count    int    `json:"count"`
-	}
-	var mimeTypeCounts []MimeTypeCount
-	rows, err = pool.Query(ctx, `SELECT pf.mime_type, COUNT(uf.id) FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id WHERE uf.owner_id = $1 GROUP BY pf.mime_type`, user.ID)
-	if err == nil {
-		for rows.Next() {
-			var m MimeTypeCount
-			rows.Scan(&m.MimeType, &m.Count)
-			mimeTypeCounts = append(mimeTypeCounts, m)
+		
+		mu.Lock()
+		results["storageStatistics"] = map[string]interface{}{
+			"originalUsageBytes": originalSize, 
+			"deduplicatedUsageBytes": deduplicatedSize, 
+			"savingsBytes": storageSavings, 
+			"savingsPercentage": savingsPercentage,
 		}
-		rows.Close()
-	}
-	type TopFile struct {
-		Filename      string `json:"filename"`
-		DownloadCount int    `json:"downloadCount"`
-	}
-	var topDownloaded []TopFile
-	rows, err = pool.Query(ctx, `SELECT filename, download_count FROM user_files WHERE owner_id = $1 ORDER BY download_count DESC LIMIT 5`, user.ID)
-	if err == nil {
-		for rows.Next() {
-			var t TopFile
-			rows.Scan(&t.Filename, &t.DownloadCount)
-			topDownloaded = append(topDownloaded, t)
+		mu.Unlock()
+	}()
+
+	// --- 2. Uploads By Day ---
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		type UploadsByDay struct {
+			Day   time.Time `json:"day"`
+			Count int       `json:"count"`
 		}
-		rows.Close()
-	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"storageStatistics": storageStats, "uploadsByDay": uploadsTimeline, "fileTypeBreakdown": mimeTypeCounts, "topDownloadedFiles": topDownloaded})
+		var uploadsTimeline []UploadsByDay
+		rows, err := pool.Query(ctx, `SELECT DATE_TRUNC('day', uploaded_at)::DATE AS day, COUNT(*) FROM user_files WHERE owner_id = $1 GROUP BY day ORDER BY day`, user.ID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var u UploadsByDay
+				_ = rows.Scan(&u.Day, &u.Count)
+				uploadsTimeline = append(uploadsTimeline, u)
+			}
+		}
+		mu.Lock()
+		results["uploadsByDay"] = uploadsTimeline
+		mu.Unlock()
+	}()
+
+	// --- 3. File Type Breakdown ---
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		type MimeTypeCount struct {
+			MimeType string `json:"mimeType"`
+			Count    int    `json:"count"`
+		}
+		var mimeTypeCounts []MimeTypeCount
+		rows, err := pool.Query(ctx, `SELECT pf.mime_type, COUNT(uf.id) FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id WHERE uf.owner_id = $1 GROUP BY pf.mime_type`, user.ID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var m MimeTypeCount
+				_ = rows.Scan(&m.MimeType, &m.Count)
+				mimeTypeCounts = append(mimeTypeCounts, m)
+			}
+		}
+		mu.Lock()
+		results["fileTypeBreakdown"] = mimeTypeCounts
+		mu.Unlock()
+	}()
+
+	// --- 4. Top Downloaded Files ---
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		type TopFile struct {
+			Filename      string `json:"filename"`
+			DownloadCount int    `json:"downloadCount"`
+		}
+		var topDownloaded []TopFile
+		rows, err := pool.Query(ctx, `SELECT filename, download_count FROM user_files WHERE owner_id = $1 AND download_count > 0 ORDER BY download_count DESC LIMIT 5`, user.ID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var t TopFile
+				_ = rows.Scan(&t.Filename, &t.DownloadCount)
+				topDownloaded = append(topDownloaded, t)
+			}
+		}
+		mu.Lock()
+		results["topDownloadedFiles"] = topDownloaded
+		mu.Unlock()
+	}()
+
+	// --- 5. Sharing Analytics ---
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Most Shared Files
+		type MostSharedFile struct {
+			Filename   string `json:"filename"`
+			ShareCount int    `json:"share_count"`
+		}
+		var mostSharedFiles []MostSharedFile
+		rows, err := pool.Query(ctx, `SELECT uf.filename, COUNT(fs.recipient_id) AS share_count FROM user_files uf JOIN file_shares fs ON uf.id = fs.user_file_id WHERE uf.owner_id = $1 GROUP BY uf.id, uf.filename ORDER BY share_count DESC LIMIT 5`, user.ID)
+		if err == nil {
+			for rows.Next() {
+				var f MostSharedFile
+				_ = rows.Scan(&f.Filename, &f.ShareCount)
+				mostSharedFiles = append(mostSharedFiles, f)
+			}
+			rows.Close()
+		}
+		
+		// Top Collaborators
+		type TopCollaborator struct {
+			RecipientName       string `json:"recipientName"`
+			FilesSharedWithCount int    `json:"files_shared_with_count"`
+		}
+		var topCollaborators []TopCollaborator
+		rows, err = pool.Query(ctx, `SELECT u.name AS recipient_name, COUNT(fs.user_file_id) AS files_shared_with_count FROM file_shares fs JOIN user_files uf ON fs.user_file_id = uf.id JOIN users u ON fs.recipient_id = u.id WHERE uf.owner_id = $1 GROUP BY u.id, u.name ORDER BY files_shared_with_count DESC LIMIT 5`, user.ID)
+		if err == nil {
+			for rows.Next() {
+				var c TopCollaborator
+				_ = rows.Scan(&c.RecipientName, &c.FilesSharedWithCount)
+				topCollaborators = append(topCollaborators, c)
+			}
+			rows.Close()
+		}
+		
+		mu.Lock()
+		results["sharingAnalytics"] = map[string]interface{}{
+			"mostSharedFiles":  mostSharedFiles,
+			"topCollaborators": topCollaborators,
+		}
+		mu.Unlock()
+	}()
+
+	// --- 6. File Size Analytics ---
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		type LargestFile struct {
+			Filename string `json:"filename"`
+			Size     int64  `json:"size"`
+		}
+		var largestFiles []LargestFile
+		rows, err := pool.Query(ctx, `SELECT uf.filename, pf.size FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id WHERE uf.owner_id = $1 ORDER BY pf.size DESC LIMIT 5`, user.ID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var f LargestFile
+				_ = rows.Scan(&f.Filename, &f.Size)
+				largestFiles = append(largestFiles, f)
+			}
+		}
+		mu.Lock()
+		results["fileSizeAnalytics"] = map[string]interface{}{
+			"largestFiles": largestFiles,
+		}
+		mu.Unlock()
+	}()
+	
+	// Wait for all goroutines to finish.
+	wg.Wait()
+	
+	// Send the complete analytics object as a single JSON response.
+	writeJSON(w, http.StatusOK, results)
 }
+
 
 func adminListAllFilesHandler(w http.ResponseWriter, r *http.Request) {
 	// ... (implementation is unchanged and correct)
@@ -1227,6 +1339,86 @@ func adminListAllFilesHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, files)
 }
 
+type AuditLogEntry struct {
+	ID        int64           `json:"id"`
+	Action    string          `json:"action"`
+	TargetID  *int            `json:"targetId,omitempty"` // Use a pointer to handle potential NULL values
+	Details   json.RawMessage `json:"details"`          // Keep as raw JSON for frontend flexibility
+	CreatedAt time.Time       `json:"createdAt"`
+}
+
+// getUserAuditLogsHandler retrieves the audit log history for the authenticated user.
+func getUserAuditLogsHandler(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
+	ctx := context.Background()
+
+	query := `
+		SELECT id, action, target_id, details, created_at
+		FROM audit_logs
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`
+
+	rows, err := pool.Query(ctx, query, user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to query audit logs: "+err.Error())
+		return
+	}
+	defer rows.Close()
+
+	var logs []AuditLogEntry
+	for rows.Next() {
+		var logEntry AuditLogEntry
+		if err := rows.Scan(&logEntry.ID, &logEntry.Action, &logEntry.TargetID, &logEntry.Details, &logEntry.CreatedAt); err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to scan audit log data: "+err.Error())
+			return
+		}
+		logs = append(logs, logEntry)
+	}
+
+	writeJSON(w, http.StatusOK, logs)
+}
+
+// src/main.go
+
+func makeFilePrivateHandler(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
+	vars := mux.Vars(r)
+	userFileID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid file ID")
+		return
+	}
+
+	var ownerID int
+	var filename string
+	// First, verify that the user making the request is the owner of the file.
+	err = pool.QueryRow(context.Background(), "SELECT owner_id, filename FROM user_files WHERE id = $1", userFileID).Scan(&ownerID, &filename)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			writeError(w, http.StatusNotFound, "File not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+
+	if ownerID != user.ID {
+		writeError(w, http.StatusForbidden, "You are not the owner of this file")
+		return
+	}
+
+	// If they are the owner, update the file to be private.
+	_, err = pool.Exec(context.Background(), "UPDATE user_files SET is_public = false WHERE id = $1", userFileID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to make file private")
+		return
+	}
+
+	logAuditEvent(user.ID, userFileID, "FILE_UNSHARE_PUBLIC", map[string]interface{}{"filename": filename})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "File is now private"})
+}
+
 func main() {
 	initConfig()
 	initDB()
@@ -1259,8 +1451,11 @@ func main() {
 	api.HandleFunc("/files/{id:[0-9]+}", deleteFileHandler).Methods("DELETE")
 	api.HandleFunc("/files/{id:[0-9]+}/share-public", shareFileHandler).Methods("POST")
 	api.HandleFunc("/files/{id:[0-9]+}/share-with", shareWithUserHandler).Methods("POST")
+	api.HandleFunc("/files/{id:[0-9]+}/share-public", makeFilePrivateHandler).Methods("DELETE")
 	api.HandleFunc("/files/{id:[0-9]+}/share", unshareFileHandler).Methods("DELETE") // to delete only from one
 	api.HandleFunc("/files/{id:[0-9]+}/download", authenticatedDownloadHandler).Methods("GET")
+	api.HandleFunc("/files/shared-by-me", listMySharedFilesHandler).Methods("GET")
+	api.HandleFunc("/logs", getUserAuditLogsHandler).Methods("GET")
 
 	// Admin-only routes
 	adminAPI := api.PathPrefix("/admin").Subrouter()
