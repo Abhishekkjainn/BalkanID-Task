@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 const FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf', 'text/plain'];
+const VIS_TYPES =['Public', 'Private'];
 
 export default function FilterBar({ onFilterChange }) {
     const [openFilter, setOpenFilter] = useState(null);
@@ -11,6 +12,11 @@ export default function FilterBar({ onFilterChange }) {
 
     const handleApplyType = (mimeType) => {
         onFilterChange({ mimeType });
+        setOpenFilter(null);
+    };
+
+    const handleApplyVisibilty = (visibility) => {
+        onFilterChange({ visibility });
         setOpenFilter(null);
     };
 
@@ -48,6 +54,7 @@ export default function FilterBar({ onFilterChange }) {
                 )}
             </div>
 
+
             {/* NEW: Size Filter */}
             <div className="filter-pill-container">
                 <button className="filter-pill" onClick={() => setOpenFilter(openFilter === 'size' ? null : 'size')}>
@@ -83,6 +90,22 @@ export default function FilterBar({ onFilterChange }) {
                     </div>
                 )}
             </div>
+
+             <div className="filter-pill-container">
+                <button className="filter-pill" onClick={() => setOpenFilter(openFilter === 'visibility' ? null : 'visibility')}>
+                    Visibility <span>▼</span>
+                </button>
+                {openFilter === 'visibility' && (
+                    <div className="filter-dropdown">
+                        {VIS_TYPES.map(vis => (
+                            <button key={vis} className="dropdown-item" onClick={() => handleApplyVisibilty(vis)}>
+                                {vis}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
         </div>
     );
 }

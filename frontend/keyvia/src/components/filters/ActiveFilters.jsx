@@ -42,6 +42,12 @@ export default function ActiveFilters({ activeFilters, onClearFilter }) {
                     <button className="clear-filter-btn" onClick={() => onClearFilter('date')}>×</button>
                 </div>
             )}
+            {activeFilters.visibility && (
+                <div className="active-filter-pill">
+                    <strong>Visibility:</strong> {activeFilters.visibility}
+                    <button className="clear-filter-btn" onClick={() => onClearFilter('visibility')}>×</button>
+                </div>
+            )}
         </div>
     );
 }

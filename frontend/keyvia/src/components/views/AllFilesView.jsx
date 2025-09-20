@@ -3,7 +3,7 @@ import Loader from '../loader';
 import Placeholder from '../Placeholder';
 import FileCard from '../FileCard';
 
-export default function AllFilesView({ openShareModal }) {
+export default function AllFilesView({ openShareModal, openPreviewModal }) {
     const { files, loading, error } = useFiles();
 
     if (loading) {
@@ -25,10 +25,16 @@ export default function AllFilesView({ openShareModal }) {
     }
 
     return (
-        <div className="filesdiv">
+        <div className="mainfilediv">
+            {(!files || files.length === 0 ) ? <Placeholder 
+            title="No Files Found"
+            message="Your file space is empty. Try uploading something!"
+        /> : <div className="filesdiv">
             {files.map(file => (
-                <FileCard key={file.id} file={file} onShare={() => openShareModal(file)} />
+                <FileCard key={file.id} file={file} onShare={() => openShareModal(file)} onPreview={() => openPreviewModal(file)} />
             ))}
+        </div>}
+        
         </div>
     );
 }

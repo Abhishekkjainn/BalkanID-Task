@@ -19,6 +19,12 @@ import ActiveFilters from '../components/filters/ActiveFilters'; // New import
 import StorageIndicator from '../components/StorageIndicator'; 
 import ProfileModal from '../components/ProfileModal';
 import LogoutModal from '../components/LogoutModal';
+import Loader from '../components/loader';
+// import ProgressBar from '../components/progressBar';
+import History from '../components/views/History';
+import ProgressBar from '../components/ProgressBar';
+import PreviewModal from '../components/PreviewModal';
+
 
 
 function DashboardContent() {
@@ -29,12 +35,16 @@ function DashboardContent() {
     const { showToast } = useToast();
     const { token } = useAuth();
     const { filters, setFilters } = useFiles();
+    
 
 
     const [selectedFile, setSelectedFile] = useState(null);
+    const [previewFile, setPreviewFile] = useState(null);
     const [stats, setStats] = useState(null);
     const [prof , setProf] = useState(false);
     const [log , setLog] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
 
     const openShareModal = (file) => {
         setSelectedFile(file);
@@ -42,6 +52,13 @@ function DashboardContent() {
 
     const closeShareModal = () => {
         setSelectedFile(null);
+    };
+
+    const openPreviewModal = (file) => {
+        setPreviewFile(file);
+    };
+    const closePreviewModal = () => {
+        setPreviewFile(null);
     };
 
     useEffect(() => {
@@ -59,14 +76,21 @@ function DashboardContent() {
     }, [token]);
 
     const handleUpload = async (filesToUpload) => {
+        
         if (filesToUpload.length === 0) return;
         try {
+            setLoading(true);
+            // setIsUploading(true); // Show the progress bar
+        setProgress(0); 
             const result = await api.uploadFiles(token, filesToUpload, (progress) => {
                 console.log(`Upload Progress: ${progress}%`); // You can use this for a progress bar later
+                setProgress(progress);
             });
             await refreshFiles(); // Refresh the file list
+            setLoading(false);
             showToast(`${result.uploadedCount} file(s) uploaded successfully!`, 'success');
         } catch (err) {
+            setLoading(false);
             showToast(err.message, 'error');
         }
     };
@@ -99,11 +123,12 @@ function DashboardContent() {
 
     const renderActiveView = () => {
         switch (activeView) {
-            case 'all': return <AllFilesView openShareModal={openShareModal} />;
-            case 'received': return <ReceivedFilesView openShareModal={openShareModal} />;
-            case 'shared': return <SharedFilesView openShareModal={openShareModal} />;
+            case 'all': return <AllFilesView openShareModal={openShareModal} openPreviewModal={openPreviewModal} />;
+            case 'received': return <ReceivedFilesView openShareModal={openShareModal} openPreviewModal={openPreviewModal} />;
+            case 'shared': return <SharedFilesView openShareModal={openShareModal} openPreviewModal={openPreviewModal} />;
             case 'analytics': return <AnalyticsView />;
-            default: return <AllFilesView openShareModal={openShareModal} />;
+            case 'history' : return <History/>
+            default: return <AllFilesView openShareModal={openShareModal} openPreviewModal={openPreviewModal} />;
         }
     };
     
@@ -118,6 +143,8 @@ function DashboardContent() {
 
     return (
         <div className="dashboard">
+            {loading && <ProgressBar progress={progress} />}
+            {/* {loading && <Loader/>} */}
             <div className="bottombar">
                 <div className={`blink ${activeView === 'all' ? 'bactive' : ''}`} onClick={() => setActiveView('all')}>
                     <img src="/allfiles.png" alt="" className="bimg" />
@@ -127,13 +154,17 @@ function DashboardContent() {
                     <img src="/shared.png" alt="" className="bimg" />
                     <div className="btag">Shared Files</div>
                 </div>
-                <div className={`blink ${activeView === 'recieved' ? 'bactive' : ''}`} onClick={() => setActiveView('recieved')}>
+                <div className={`blink ${activeView === 'received' ? 'bactive' : ''}`} onClick={() => setActiveView('received')}>
                     <img src="/recieved.png" alt="" className="bimg" />
                     <div className="btag">Recieved Files</div>
                 </div>
                 <div className={`blink ${activeView === 'analytics' ? 'bactive' : ''}`} onClick={() => setActiveView('analytics')}>
                     <img src="/analytics.png" alt="" className="bimg" />
                     <div className="btag">Analytics</div>
+                </div>
+                <div className={`blink ${activeView === 'history' ? 'bactive' : ''}`} onClick={() => setActiveView('history')}>
+                    <img src="/history.png" alt="" className="bimg" />
+                    <div className="btag">History</div>
                 </div>
             </div>
             <div className="bottomheader">
@@ -148,6 +179,9 @@ function DashboardContent() {
                     </div>
                 </div>
                 <div className="actions">
+                    <div className="action">
+                        <img src="/filter.png" alt="" className="actionicon" />
+                    </div>
                     <div className="action" onClick={() => setProf(true)}>
                         <img src="/user.png" alt="" className="actionicon" />
                     </div>
@@ -162,13 +196,12 @@ function DashboardContent() {
             </div>
 
             <div className="mainbar">
-                {/* ADD THE FILTERING UI
                 {activeView !== 'analytics' && (
                     <div className="filters-section">
                         <FilterBar onFilterChange={handleFilterChange} />
                         <ActiveFilters activeFilters={filters} onClearFilter={clearFilter} />
                     </div>
-                )} */}
+                )}
 
                 <div className="main-content">
                     {renderActiveView()}
@@ -185,6 +218,11 @@ function DashboardContent() {
                 isOpen={!!selectedFile}
                 onClose={closeShareModal}
                 file={selectedFile}
+            />
+            <PreviewModal
+                isOpen={!!previewFile}
+                onClose={closePreviewModal}
+                file={previewFile}
             />
             
             <ProfileModal user={user} isOpen={prof} onClose={()=>setProf(false)} stats={stats}/>

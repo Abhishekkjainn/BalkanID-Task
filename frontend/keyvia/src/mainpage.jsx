@@ -15,7 +15,7 @@ export default function MainPage() {
             <div className="footer">
                 <nav className="footer-nav">
                     <a href="/about">About</a>
-                    <a href="/projects">Projects</a>
+                    <a href="/documentation">Documentation</a>
                     <a href="/contact">Contact</a>
                     <a href="/privacy">Privacy Policy</a>
                 </nav>
@@ -27,7 +27,7 @@ export default function MainPage() {
                 </div>
                 <div className="bigtext">Keyvia.</div>
                 <div className="copyright">
-                    &copy; 2024 Keyvia. All rights reserved.
+                    &copy; 2025 Keyvia. All rights reserved.
                 </div>
             </div>
         </>

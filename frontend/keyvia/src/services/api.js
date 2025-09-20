@@ -43,6 +43,8 @@ export async function searchFiles(token, filters = {}) {
   return handleResponse(response); // We use the existing helper
 }
 
+
+
 /**
  * Uploads files with progress tracking.
  * @param {string} token - The user's JWT token.
@@ -166,6 +168,56 @@ export async function shareFileWithUser(token, fileId, shareWithUsername) {
 export async function getAnalytics(token) {
   const response = await fetch(`${API_BASE_URL}/api/files/analytics`, {
     method: 'POST', // As per your backend spec
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+// Add this new function to api.js
+
+/**
+ * Fetches files shared BY the current user.
+ * @param {string} token - The user's JWT token.
+ * @returns {Promise<Array>} - An array of file objects shared by the user.
+ */
+export async function getSharedByMeFiles(token) {
+  const response = await fetch(`${API_BASE_URL}/api/files/shared-by-me`, {
+    method: 'GET', // As defined in the Go backend
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+
+/**
+ * Fetches the audit log history for the authenticated user.
+ * @param {string} token - The user's JWT token.
+ * @returns {Promise<Array>} - An array of audit log entry objects.
+ */
+export async function getAuditLogs(token) {
+  const response = await fetch(`${API_BASE_URL}/api/logs`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+
+/**
+ * Makes a publicly shared file private again.
+ * @param {string} token - The user's JWT token.
+ * @param {number} fileId - The ID of the file to make private.
+ * @returns {Promise<object>} - The server's success message.
+ */
+export async function makeFilePrivate(token, fileId) {
+  const response = await fetch(`${API_BASE_URL}/api/files/${fileId}/share-public`, {
+    method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`,
     },

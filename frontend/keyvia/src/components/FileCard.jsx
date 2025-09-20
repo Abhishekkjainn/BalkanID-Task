@@ -53,7 +53,7 @@ const FileTypeIcon = ({ mimeType }) => {
 };
 
 
-export default function FileCard({ file, onShare }) {
+export default function FileCard({ file, onShare, onPreview }) {
     const { token } = useAuth();
     const { deleteFile } = useFiles();
     // const { deleteFile } = useFiles(); // This would be your actual context hook
@@ -77,9 +77,30 @@ export default function FileCard({ file, onShare }) {
     const isPdf = file.mimeType === 'application/pdf';
     const isDeduplicated = file.refCount > 1;
 
+     const isPreviewable = isImage || isPdf;
+
     // const cardStyle = isImage ? { backgroundImage: `url(${file.url})` } : {};
      const cardStyle = isImage ? { backgroundImage: `url(${generateThumbnailUrl(file.url)})` } : {};
     console.log(file);
+
+     const formatDate = (dateString) => {
+    // 1. Create a new Date object from the API string
+    const date = new Date(dateString);
+
+    // 2. Define an array of short month names
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"
+    ];
+
+    // 3. Get the day, month index, and year from the date object
+    const day = date.getDate();
+    const monthIndex = date.getMonth(); // getMonth() is zero-based (0 for Jan)
+    const year = date.getFullYear();
+
+    // 4. Assemble and return the formatted string
+    return `${day} ${monthNames[monthIndex]} ${year}`;
+  };
 
     return (
         <>
@@ -105,26 +126,28 @@ export default function FileCard({ file, onShare }) {
                 <div className="card-overlay">
                     <div className="file-info">
                         <h3 className="filename" title={file.filename}>{file.filename}</h3>
+                        {/* <div className="date">{formatDate(file.uploadedAt)}</div> */}
                         <div className="file-meta">
                             <span>by {file.ownerName}</span>
                             <span className="meta-divider">|</span>
+                            <span >{formatDate(file.uploadedAt)}</span>
+                            <span className="meta-divider">|</span>
                             <span className={`dedup-status ${isDeduplicated ? 'deduped' : ''}`}>
-                                {isDeduplicated ? 'Deduplicated' : 'Unique'}
+                                {isDeduplicated ? 'Dedup' : 'Unique'}
                             </span>
-                            {file.isPublic && (
+                        </div>
+                        {file.isPublic && (
                                 <>
-                                    <span className="meta-divider">|</span>
                                     <span className="download-count">{file.downloadCount} Downloads</span>
                                 </>
                             )}
-                        </div>
                     </div>
 
                     <div className={`file-card-actions ${actionsVisible ? 'visible' : ''}`}>
                         <button className="action-btn" onClick={(e) => { e.stopPropagation(); onShare(); }} title="Share File">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                         </button>
-                        <button className="action-btn" title="Preview File (coming soon)" disabled onClick={(e) => e.stopPropagation()}>
+                        <button className="action-btn" title="Preview File (coming soon)" disabled={!isPreviewable} onClick={(e) => { e.stopPropagation(); onPreview(); }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                         </button>
                          <button className="action-btn" title="Download File" onClick={(e) => { 
