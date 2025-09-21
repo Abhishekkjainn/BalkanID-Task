@@ -1707,7 +1707,7 @@ func main() {
 	// NEW: CORS configuration
 	// This must wrap the main router `r`. It allows requests from your frontend.
 	corsHandler := handlers.CORS(
-		handlers.AllowedOrigins([]string{"http://localhost:5173","https://keyvia.vercel.app/"}), // Your React app's origin
+		handlers.AllowedOrigins([]string{"http://localhost:5173","https://keyvia.vercel.app","https://keyvia-backend.onrender.com"}), // Your React app's origin
 		handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "OPTIONS"}),
 		handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
 	)(r)
