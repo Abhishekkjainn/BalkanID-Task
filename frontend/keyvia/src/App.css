@@ -132,9 +132,9 @@ body::selection{
     position: relative;
     background: radial-gradient(
         circle at center,
-        rgba(0, 229, 143, 0.08) 0%,   /* soft mint glow */
-        rgba(13, 17, 23, 0.95) 50%,   /* blend into your dark bg */
-        #0D1117 100%                  /* fallback to base bg */
+        rgba(0, 229, 143, 0.08) 0%,   
+        rgba(13, 17, 23, 0.95) 50%,   
+        #0D1117 100%                  
     );
 }
 .tagpill{
@@ -585,7 +585,6 @@ body::selection{
 .social-links a:hover {
     color: #00c77b; /* change color on hover to match your theme */
 }
-/* END: Added CSS for Footer Links */
 
 
 /*Footer*/
@@ -611,12 +610,6 @@ body::selection{
     font-size: 14px;
     color: grey;
 }
-
-
-
-
-/* Add these styles to your main CSS file */
-
 
 /* --- PLACEHOLDER --- */
 .placeholder-container {
@@ -806,7 +799,6 @@ body::selection{
     cursor: not-allowed;
 }
 
-/* Add to your main CSS file */
 .file-card-actions {
     display: flex;
     align-items: center;
@@ -833,7 +825,6 @@ body::selection{
     opacity: 0.3;
 }
 
-/* Add to your main CSS file */
 .modal-content {
     padding: 24px;
     display: flex;
@@ -877,14 +868,6 @@ body::selection{
 }
 
 
-
-/*Share Modal*/
-
-
-
-
-
-/* Add to your main CSS file */
 .file-section {
     margin-bottom: 40px;
 }
@@ -1006,9 +989,7 @@ body::selection{
     color: white;
 }
 
-/* Add to your main CSS file */
 .filter-dropdown {
-    /* ... existing styles ... */
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -1027,7 +1008,7 @@ body::selection{
     padding: 8px 12px;
     color: #c9d1d9;
     width: 100%;
-    box-sizing: border-box; /* Important for padding */
+    box-sizing: border-box; 
 }
 
 /* Style for date input icon */
@@ -1328,10 +1309,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     
 }
 
-/*Profile Modal*/
-/* src/components/ProfileModal.css */
 
-/* --- CSS Variables for easy theming --- */
 :root {
   --modal-bg: #161b22;
   --modal-border: #30363d;
@@ -1549,7 +1527,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .file-card {
-    aspect-ratio: 1/1; /* This maintains the square shape */
+    aspect-ratio: 1/1; 
     background-color: #111418;
     border-radius: 16px;
     border: 1px solid rgba(128, 128, 128, 0.3);
@@ -1685,11 +1663,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     transition: opacity 0.3s ease, max-height 0.3s ease, margin-top 0.3s ease;
 }
 
-/* Show actions when the 'visible' class is added */
 .file-card-actions.visible {
     opacity: 1;
-    max-height: 36px; /* Height of one button */
-    margin-top: 8px; /* Space between info and buttons */
+    max-height: 36px; 
+    margin-top: 8px; 
 }
 
 .action-btn {
@@ -1732,27 +1709,22 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-
-
-/* Add this to your main CSS file */
-
 .pdf-preview-container {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #333; /* Dark background for the viewer */
+  background-color: #333; 
 }
 
 .pdf-document-wrapper {
   flex-grow: 1;
-  overflow: auto; /* Allow scrolling for zoomed pages */
+  overflow: auto; 
   display: flex;
   justify-content: center;
   padding: 1rem;
 }
 
-/* Style the canvas rendered by react-pdf */
 .pdf-document-wrapper .react-pdf__Page__canvas {
   max-width: 100%;
   height: auto !important; /* Important override */
@@ -1809,19 +1781,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* --- FINAL DARK MODE ANALYTICS STYLES --- */
 :root {
-    --bg-color: #0d1117;          /* Main background */
-    --card-bg-color: #161b22;      /* Card background */
-    --border-color: #30363d;       /* Borders and dividers */
-    --text-primary: #c9d1d9;       /* Main text, titles */
-    --text-secondary: #8b949e;     /* Subtitles, labels, muted text */
-    --primary-accent: #58a6ff;     /* A brighter blue for accents */
-    --green-accent: #3fb950;       /* Green for positive stats */
+    --bg-color: #0d1117;          
+    --card-bg-color: #161b22;      
+    --border-color: #30363d;        
+    --text-primary: #c9d1d9;       
+    --text-secondary: #8b949e;     
+    --primary-accent: #58a6ff;     
+    --green-accent: #3fb950;       
 }
 
 .analytics-container {
     padding: 24px;
     background-color: var(--bg-color);
-    /* font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; */
     margin-top: 80px;
 }
 

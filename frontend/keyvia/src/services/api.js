@@ -31,10 +31,10 @@ export async function signup(name, username, password) {
 }
 
 
-// --- File Management Functions (Skeletons for now) ---
+// --- File Management Functions ---
 export async function searchFiles(token, filters = {}) {
   const response = await fetch(`${API_BASE_URL}/api/files/search`, {
-    method: 'POST', // FIX: Change from GET to POST
+    method: 'POST', 
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
@@ -58,9 +58,7 @@ export function uploadFiles(token, files, onProgress) {
   return new Promise(async (resolve, reject) => {
 const formData = new FormData();
 
-    // 3. PROCESS FILES ASYNCHRONOUSLY TO READ THEIR BYTES
     for (const file of files) {
-      // Create a copy of the file to set the correct MIME type
       let fileToSend = file;
 
       try {
@@ -73,7 +71,6 @@ const formData = new FormData();
         const mimeType = sniffed.mime || file.type || 'application/octet-stream';
         
         // Create a new File object with the corrected type.
-        // This is crucial for the browser to send the right Content-Type header.
         fileToSend = new File([file], file.name, { type: mimeType });
         console.log(`Uploading '${file.name}' with detected MIME type: ${mimeType}`);
 
@@ -169,14 +166,13 @@ export async function shareFileWithUser(token, fileId, shareWithUsername) {
  */
 export async function getAnalytics(token) {
   const response = await fetch(`${API_BASE_URL}/api/files/analytics`, {
-    method: 'POST', // FIX: Change from GET to POST
+    method: 'POST', 
     headers: {
       'Authorization': `Bearer ${token}`,
     },
   });
   return handleResponse(response);
 }
-// Add this new function to api.js
 
 /**
  * Fetches files shared BY the current user.
@@ -187,7 +183,7 @@ export async function getSharedByMeFiles(token) {
   const response = await fetch(`${API_BASE_URL}/api/files/shared-by-me`, {
     method: 'GET', // As defined in the Go backend
     headers: {
-      'Authorization': `Bearer ${token}`, // FIX: Add this header
+      'Authorization': `Bearer ${token}`,
     },
   });
   return handleResponse(response);
@@ -203,7 +199,7 @@ export async function getAuditLogs(token) {
   const response = await fetch(`${API_BASE_URL}/api/logs`, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${token}`, // FIX: Add this header
+      'Authorization': `Bearer ${token}`,
     },
   });
   return handleResponse(response);

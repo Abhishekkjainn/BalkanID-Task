@@ -38,7 +38,6 @@ export default function FilterBar({ onFilterChange }) {
 
     return (
         <div className="filter-bar">
-            {/* File Type Filter (Unchanged) */}
             <div className="filter-pill-container">
                 <button className="filter-pill" onClick={() => setOpenFilter(openFilter === 'type' ? null : 'type')}>
                     File Type <span>▼</span>
@@ -54,8 +53,6 @@ export default function FilterBar({ onFilterChange }) {
                 )}
             </div>
 
-
-            {/* NEW: Size Filter */}
             <div className="filter-pill-container">
                 <button className="filter-pill" onClick={() => setOpenFilter(openFilter === 'size' ? null : 'size')}>
                     Size <span>▼</span>
@@ -73,7 +70,6 @@ export default function FilterBar({ onFilterChange }) {
                 )}
             </div>
             
-            {/* NEW: Date Filter */}
             <div className="filter-pill-container">
                 <button className="filter-pill" onClick={() => setOpenFilter(openFilter === 'date' ? null : 'date')}>
                     Date <span>▼</span>

@@ -1,6 +1,5 @@
-// src/components/ProfileModal.js
 import React, { useEffect } from 'react';
-import StorageIndicator from './StorageIndicator'; // We'll create this next
+import StorageIndicator from './StorageIndicator'; 
 
 export default function ProfileModal({ user, stats, isOpen, onClose }) {
   // Effect to handle closing the modal with the 'Escape' key

@@ -1,18 +1,3 @@
-// import { Link } from 'react-router-dom';
-// export default function Header(){
-//     return <div className="header">
-//         <Link to={'/'} className="company">
-//             <img src="/bolt.png" alt="" className="companyicon" />
-//             <div className="companytag">Keyvia</div>
-//         </Link>
-//         <div className="linkdiv">
-//             <Link to={'/'} className="link">Home</Link>
-//             <Link to={'/dashboard'} className="link">Dashboard</Link>
-//             <div className="link">Documentation</div>
-//             <a href='https://abhishekjain.vercel.app' target='_blank' className="link">Developer</a>
-//         </div>
-//     </div>
-// }
 
 
 import React, { useState, useEffect } from 'react';
@@ -50,7 +35,7 @@ export default function Header() {
                 <div className="linkdiv-desktop">
                     <Link to={'/'} className="link">Home</Link>
                     <Link to={'/dashboard'} className="link">Dashboard</Link>
-                    <div className="link">Documentation</div>
+                    <a href='https://documenter.getpostman.com/view/39857190/2sB3HtFwWi' className="link">Documentation</a>
                     <a href='https://abhishekjain.vercel.app' target='_blank' rel="noopener noreferrer" className="link">Developer</a>
                 </div>
 
@@ -82,7 +67,7 @@ export default function Header() {
                 <div className="linkdiv-mobile">
                     <Link to={'/'} className="link" onClick={closeMenu}>Home</Link>
                     <Link to={'/dashboard'} className="link" onClick={closeMenu}>Dashboard</Link>
-                    <div className="link" onClick={closeMenu}>Documentation</div>
+                    <a href='https://documenter.getpostman.com/view/39857190/2sB3HtFwWi' className="link" onClick={closeMenu}>Documentation</a>
                     <a href='https://abhishekjain.vercel.app' target='_blank' rel="noopener noreferrer" className="link" onClick={closeMenu}>Developer</a>
                 </div>
             </div>

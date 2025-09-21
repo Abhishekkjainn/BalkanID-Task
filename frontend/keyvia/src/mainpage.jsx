@@ -11,19 +11,18 @@ export default function MainPage() {
             <Features />
             <Banner />
             
-            {/* UPDATED: Changed all 'class' attributes to 'className' */}
+            
             <div className="footer">
                 <nav className="footer-nav">
-                    <a href="/about">About</a>
-                    <a href="/documentation">Documentation</a>
-                    <a href="/contact">Contact</a>
-                    <a href="/privacy">Privacy Policy</a>
+                    <a href="/">About</a>
+                    <a href="https://documenter.getpostman.com/view/39857190/2sB3HtFwWi">Documentation</a>
+                    <a href="mailto:jainabhishek1904@gmail.com">Contact</a>
+                    <a href="https://documenter.getpostman.com/view/39857190/2sB3HtFwWi">Privacy Policy</a>
                 </nav>
                 <div className="social-links">
-                    {/* Note: For these icons to appear, you need to have Font Awesome linked in your main index.html file */}
-                    <a href="https://github.com/your-username" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><i className="fab fa-github"></i></a>
-                    <a href="https://linkedin.com/in/your-profile" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><i className="fab fa-linkedin"></i></a>
-                    <a href="https://your-portfolio.com" target="_blank" rel="noopener noreferrer" aria-label="Personal Portfolio"><i className="fas fa-globe"></i></a>
+                    <a href="https://github.com/Abhishekkjainn" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><i className="fab fa-github"></i></a>
+                    <a href="https://www.linkedin.com/in/abhishekk-jainn/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><i className="fab fa-linkedin"></i></a>
+                    <a href="https://abhishekjain.vercel.app" target="_blank" rel="noopener noreferrer" aria-label="Personal Portfolio"><i className="fas fa-globe"></i></a>
                 </div>
                 <div className="bigtext">Keyvia.</div>
                 <div className="copyright">

@@ -37,7 +37,6 @@ const featureData = [
 }
 ];
 
-// 2. Create a reusable component for the feature card
 const FeatureCard = ({ icon, title, image, description }) => (
     <div className="feature">
         <div className="featuretop">
@@ -49,8 +48,6 @@ const FeatureCard = ({ icon, title, image, description }) => (
     </div>
 );
 
-
-// 3. The main component now cleanly maps over the data
 export default function Features() {
     return (
         <div className="features">

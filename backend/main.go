@@ -45,7 +45,7 @@ var pool *pgxpool.Pool
 var cld *cloudinary.Cloudinary
 var jwtSecret []byte
 
-// NEW: AppConfig struct to hold all configurable values
+
 type AppConfig struct {
 	DatabaseURL     string
 	RateRPS         float64
@@ -75,7 +75,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// UPDATED: initConfig now loads all settings from .env
+
 func initConfig() {
 	_ = godotenv.Load()
 
@@ -181,7 +181,7 @@ func initDB() {
     fmt.Println("Database connection pool created successfully!")
 }
 
-// initCloudinary is unchanged
+// initCloudinary
 func initCloudinary() {
 	cldName := os.Getenv("CLOUDINARY_CLOUD_NAME")
 	apiKey := os.Getenv("CLOUDINARY_API_KEY")
@@ -198,6 +198,8 @@ func initCloudinary() {
 	fmt.Println("Cloudinary client initialized successfully!")
 }
 
+
+// To make sure that the DB is exactly what our platform needs. [not sure about this]
 func ensureFilesSchema() error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, password_hash TEXT NOT NULL, name VARCHAR(100) NOT NULL, role VARCHAR(20) DEFAULT 'user' NOT NULL, last_login TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -207,7 +209,7 @@ func ensureFilesSchema() error {
 		`CREATE TABLE IF NOT EXISTS file_shares (id SERIAL PRIMARY KEY, user_file_id INT NOT NULL REFERENCES user_files(id) ON DELETE CASCADE, recipient_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE, shared_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(user_file_id, recipient_id))`,
 		`CREATE TABLE IF NOT EXISTS audit_logs (id BIGSERIAL PRIMARY KEY, user_id INT REFERENCES users(id) ON DELETE SET NULL, action VARCHAR(50) NOT NULL, details JSONB, created_at TIMESTAMPTZ DEFAULT NOW())`,
 		
-        // THE FIX: This command safely adds the column if it's missing and does nothing otherwise.
+        // This command safely adds the column if it's missing and does nothing otherwise.
 		
 		`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS target_id INT`,
 		`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS details JSONB`,
@@ -227,38 +229,13 @@ func ensureFilesSchema() error {
 	return nil
 }
 
-// logAuditEvent helper is unchanged
-// func logAuditEvent(userID, targetID int, action string, details map[string]interface{}) {
-// 	// ... (implementation is unchanged and correct)
-// 	go func() {
-// 		detailsJSON, err := json.Marshal(details)
-// 		if err != nil {
-// 			log.Printf("ERROR: Failed to marshal audit log details: %v", err)
-// 			return
-// 		}
-// 		var userIDArg interface{}
-// 		if userID != 0 {
-// 			userIDArg = userID
-// 		} else {
-// 			userIDArg = nil
-// 		}
-// 		_, err = pool.Exec(context.Background(), `INSERT INTO audit_logs (user_id, action, target_id, details) VALUES ($1, $2, $3, $4)`, userIDArg, action, targetID, detailsJSON)
-// 		if err != nil {
-// 			log.Printf("ERROR: Failed to write audit log event: %v", err)
-// 		}
-// 	}()
-// }
-
-// in main.go
-
-// in main.go
-
+//Audit
 func logAuditEvent(userID, targetID int, action string, details map[string]interface{}) {
 	go func() {
 		var detailsArg interface{}
 		var err error
 
-		// 1. Check if the details map is actually provided.
+		
 		if details != nil {
 			var detailsJSON []byte
 			detailsJSON, err = json.Marshal(details)
@@ -266,12 +243,10 @@ func logAuditEvent(userID, targetID int, action string, details map[string]inter
 				log.Printf("ERROR: Failed to marshal audit log details: %v", err)
 				return
 			}
-			// --- THIS IS THE FINAL FIX ---
-			// 2. Convert the byte slice to a string before sending it.
-			//    This ensures it's correctly interpreted by PostgreSQL as a JSON literal.
+		
 			detailsArg = string(detailsJSON)
 		} else {
-			// 3. If details are nil, pass a proper SQL NULL.
+			// If details are nil, pass a proper SQL NULL.
 			detailsArg = nil
 		}
 
@@ -282,7 +257,6 @@ func logAuditEvent(userID, targetID int, action string, details map[string]inter
 			userIDArg = nil
 		}
 
-		// The query remains the same.
 		_, err = pool.Exec(context.Background(), `INSERT INTO audit_logs (user_id, action, target_id, details) VALUES ($1, $2, $3, $4)`, userIDArg, action, targetID, detailsArg)
 		if err != nil {
 			log.Printf("ERROR: Failed to write audit log event: %v", err)
@@ -290,9 +264,8 @@ func logAuditEvent(userID, targetID int, action string, details map[string]inter
 	}()
 }
 
-// writeJSON and writeError helpers are unchanged
+// writeJSON and writeError helpers 
 func writeJSON(w http.ResponseWriter, status int, body interface{}) {
-	// ... (implementation is unchanged and correct)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
@@ -320,7 +293,7 @@ type AuthRequest struct {
 	Password string `json:"password"`
 }
 
-// verifyCredentialsAndGetUser is unchanged
+// verifyCredentialsAndGetUser for auth
 func verifyCredentialsAndGetUser(username, password string) (*AuthenticatedUser, error) {
 	// ... (implementation is unchanged and correct)
 	user := &AuthenticatedUser{}
@@ -375,7 +348,7 @@ func authMiddleware(next http.Handler) http.Handler {
     })
 }
 
-// UPDATED: Rate Limiting Middleware now uses configured values
+// Rate Limiting Middleware now uses configured values
 func rateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, ok := r.Context().Value(userContextKey).(*AuthenticatedUser)
@@ -401,7 +374,7 @@ func rateLimitMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// adminOnlyMiddleware is unchanged
+// adminOnlyMiddleware for RBAC
 func adminOnlyMiddleware(next http.Handler) http.Handler {
 	// ... (implementation is unchanged and correct)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -507,96 +480,6 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- FILE HANDLERS ---
-// UPDATED: uploadHandler now uses configured quota value
-// func uploadHandler(w http.ResponseWriter, r *http.Request) {
-// 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
-
-// 	if err := r.ParseMultipartForm(50 << 20); err != nil {
-// 		writeError(w, http.StatusBadRequest, "Error parsing form")
-// 		return
-// 	}
-
-// 	files := r.MultipartForm.File["files"]
-// 	if len(files) == 0 {
-// 		writeError(w, http.StatusBadRequest, "No files provided in 'files' field")
-// 		return
-// 	}
-
-// 	// --- STORAGE QUOTA LOGIC ---
-// 	ctx := context.Background()
-// 	var newFilesSize int64 = 0
-// 	var newHashes []string
-
-// 	for _, fileHeader := range files {
-// 		// ... (inner loop logic is unchanged and correct)
-// 		file, err := fileHeader.Open()
-// 		if err != nil {
-// 			writeError(w, http.StatusInternalServerError, "Could not read file for quota check")
-// 			return
-// 		}
-
-// 		hash := sha256.New()
-// 		if _, err := io.Copy(hash, file); err != nil {
-// 			writeError(w, http.StatusInternalServerError, "Could not hash file for quota check")
-// 			return
-// 		}
-// 		file.Close()
-// 		hashStr := hex.EncodeToString(hash.Sum(nil))
-
-// 		var exists bool
-// 		err = pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM physical_files WHERE hash = $1)", hashStr).Scan(&exists)
-// 		if err != nil {
-// 			writeError(w, http.StatusInternalServerError, "Database error during quota check")
-// 			return
-// 		}
-
-// 		if !exists {
-// 			isDuplicateInBatch := false
-// 			for _, h := range newHashes {
-// 				if h == hashStr {
-// 					isDuplicateInBatch = true
-// 					break
-// 				}
-// 			}
-// 			if !isDuplicateInBatch {
-// 				newFilesSize += fileHeader.Size
-// 				newHashes = append(newHashes, hashStr)
-// 			}
-// 		}
-// 	}
-
-// 	var currentUsageBytes int64
-// 	err := pool.QueryRow(ctx, `
-//         SELECT COALESCE(SUM(pf.size), 0) FROM physical_files pf 
-//         WHERE pf.id IN (SELECT DISTINCT physical_file_id FROM user_files WHERE owner_id = $1)`, user.ID).Scan(&currentUsageBytes)
-// 	if err != nil {
-// 		writeError(w, http.StatusInternalServerError, "Could not retrieve user storage usage")
-// 		return
-// 	}
-
-// 	if currentUsageBytes+newFilesSize > appConfig.MaxStorageBytes { // Use configured value
-// 		errorMessage := fmt.Sprintf(
-// 			"Storage quota exceeded. Your current usage is %.2f MB. This upload would add %.2f MB, exceeding the %.2f MB limit.",
-// 			float64(currentUsageBytes)/1024/1024, float64(newFilesSize)/1024/1024, float64(appConfig.MaxStorageBytes)/1024/1024,
-// 		)
-// 		writeError(w, http.StatusForbidden, errorMessage)
-// 		return
-// 	}
-// 	// --- END OF QUOTA LOGIC ---
-
-// 	var uploadedFiles []map[string]interface{}
-// 	for _, fileHeader := range files {
-// 		processedFile, err := processAndUploadFile(user.ID, fileHeader)
-// 		if err != nil {
-// 			writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to process file %s: %v", fileHeader.Filename, err))
-// 			return
-// 		}
-// 		uploadedFiles = append(uploadedFiles, processedFile)
-// 	}
-// 	writeJSON(w, http.StatusCreated, map[string]interface{}{"message": "Files uploaded successfully", "uploadedCount": len(uploadedFiles), "files": uploadedFiles})
-// }
-
-// A completely rewritten upload handler that processes files in a single, efficient loop.
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
 
@@ -628,7 +511,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- SINGLE PROCESSING LOOP ---
 	for _, fileHeader := range files {
-		// 1. Open and hash the file (this is the only time we read it before upload)
+		// Open and hash the file (this is the only time we read it before upload)
 		file, err := fileHeader.Open()
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not open file for processing")
@@ -644,7 +527,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		file.Close() // Close immediately after hashing
 		hashStr := hex.EncodeToString(hash.Sum(nil))
 
-		// 2. Check if this exact file content already exists in the DB or this batch
+		// Check if this exact file content already exists in the DB or this batch
 		var existsInDB bool
 		err = pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM physical_files WHERE hash = $1)", hashStr).Scan(&existsInDB)
 		if err != nil {
@@ -654,7 +537,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		_, existsInBatch := newHashes[hashStr]
 
-		// 3. If it's a new, unique file, check the quota
+		// If it's a new, unique file, check the quota
 		if !existsInDB && !existsInBatch {
 			if currentUsageBytes+newFilesSize+fileHeader.Size > appConfig.MaxStorageBytes {
 				errorMessage := fmt.Sprintf(
@@ -668,7 +551,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 			newHashes[hashStr] = true
 		}
 
-		// 4. Process and upload the file within a transaction
+		// Process and upload the file within a transaction
 		tx, err := pool.Begin(ctx)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not start transaction")
@@ -693,112 +576,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // The final, perfected upload function with accurate MIME type detection.
-// func processAndUploadFile(userID int, header *multipart.FileHeader) (map[string]interface{}, error) {
-//     file, err := header.Open()
-//     if err != nil {
-//         return nil, fmt.Errorf("could not open file header: %w", err)
-//     }
-//     defer file.Close()
-
-//     // --- Accurate MIME Type Detection ---
-//     var finalMimeType string
-
-//     // 1. Prioritize the file extension for specific types (.docx, .xlsx, .txt).
-//     // This is the most reliable method for user-friendly types.
-//     ext := filepath.Ext(header.Filename)
-//     finalMimeType = mime.TypeByExtension(ext)
-
-//     // 2. If the extension is unknown (or untrusted), fall back to content sniffing.
-//     if finalMimeType == "" {
-//         buffer := make([]byte, 512)
-//         _, err = file.Read(buffer)
-//         if err != nil && err != io.EOF {
-//             return nil, fmt.Errorf("could not read file header for MIME detection: %w", err)
-//         }
-//         finalMimeType = http.DetectContentType(buffer)
-//     }
-//     // --- End of MIME Logic ---
-
-
-//     // 3. Determine the Cloudinary resource_type using our accurate MIME type.
-//     resourceType := getResourceTypeFromMIME(finalMimeType)
-
-//     // 4. CRITICAL: Rewind the file stream before any further reading.
-//     if _, err := file.Seek(0, 0); err != nil {
-//         return nil, fmt.Errorf("could not seek file after MIME check: %w", err)
-//     }
-
-//     // 5. Calculate the file's hash for deduplication.
-//     hash := sha256.New()
-//     if _, err := io.Copy(hash, file); err != nil {
-//         return nil, fmt.Errorf("could not hash file: %w", err)
-//     }
-//     hashStr := hex.EncodeToString(hash.Sum(nil))
-
-//     // 6. CRITICAL: Rewind the file stream again before the final upload.
-//     if _, err := file.Seek(0, 0); err != nil {
-//         return nil, fmt.Errorf("could not seek file before upload: %w", err)
-//     }
-
-//     ctx := context.Background()
-//     tx, err := pool.Begin(ctx)
-//     if err != nil {
-//         return nil, err
-//     }
-//     defer tx.Rollback(ctx)
-
-//     var physicalFileID int
-//     var wasDeduplicated bool
-//     err = tx.QueryRow(ctx, "SELECT id FROM physical_files WHERE hash = $1", hashStr).Scan(&physicalFileID)
-
-//     if err == pgx.ErrNoRows {
-//         wasDeduplicated = false
-        
-//         // 7. PERFECTED PARAMS: Set all necessary options for a successful public upload.
-//         uploadParams := uploader.UploadParams{
-//             ResourceType: resourceType, // Use the correct type (image, video, or raw)
-//             Type:         "upload",     // Ensure the file is public
-//             Moderation:   "manual",     // Prevent automatic moderation from blocking it
-//         }
-
-//         uploadResult, uploadErr := cld.Upload.Upload(ctx, file, uploadParams)
-//         if uploadErr != nil {
-//             return nil, fmt.Errorf("cloudinary upload failed: %w", uploadErr)
-//         }
-
-//         // 8. Store the ACCURATE finalMimeType in the database.
-//         insertErr := tx.QueryRow(ctx, `INSERT INTO physical_files (hash, storage_url, public_id, size, mime_type) VALUES ($1, $2, $3, $4, $5) RETURNING id`, hashStr, uploadResult.SecureURL, uploadResult.PublicID, header.Size, finalMimeType).Scan(&physicalFileID)
-//         if insertErr != nil {
-//             return nil, fmt.Errorf("failed to insert new physical file record: %w", insertErr)
-//         }
-//     } else if err != nil {
-//         return nil, fmt.Errorf("failed to check for existing file hash: %w", err)
-//     } else {
-//         wasDeduplicated = true
-//         _, updateErr := tx.Exec(ctx, "UPDATE physical_files SET ref_count = ref_count + 1 WHERE id = $1", physicalFileID)
-//         if updateErr != nil {
-//             return nil, fmt.Errorf("failed to update reference count for duplicate file: %w", updateErr)
-//         }
-//     }
-    
-//     // --- This final part remains unchanged as it's already correct ---
-//     var userFileID int
-//     var uploadedAt time.Time
-//     err = tx.QueryRow(ctx, `INSERT INTO user_files (owner_id, physical_file_id, filename) VALUES ($1, $2, $3) RETURNING id, uploaded_at`, userID, physicalFileID, header.Filename).Scan(&userFileID, &uploadedAt)
-//     if err != nil {
-//         return nil, fmt.Errorf("failed to create user file reference: %w", err)
-//     }
-
-//     if err := tx.Commit(ctx); err != nil {
-//         return nil, fmt.Errorf("failed to commit transaction: %w", err)
-//     }
-
-//     logAuditEvent(userID, userFileID, "FILE_UPLOAD", map[string]interface{}{"filename": header.Filename, "size": header.Size, "deduplicated": wasDeduplicated})
-
-//     return map[string]interface{}{"userFileId": userFileID, "filename": header.Filename, "size": header.Size, "uploadedAt": uploadedAt, "wasDeduplicated": wasDeduplicated}, nil
-// }
-
-
 // processAndUploadFile now accepts a transaction and hash, making it part of a larger workflow.
 func processAndUploadFile(tx pgx.Tx, userID int, header *multipart.FileHeader, hashStr string) (map[string]interface{}, error) {
 	file, err := header.Open()
@@ -869,7 +646,7 @@ func processAndUploadFile(tx pgx.Tx, userID int, header *multipart.FileHeader, h
 }
 
 
-// UPDATED: searchFilesHandler now includes ref_count for deduplication status
+// searchFilesHandler now includes ref_count for deduplication status
 func searchFilesHandler(w http.ResponseWriter, r *http.Request) {
     user := r.Context().Value(userContextKey).(*AuthenticatedUser)
     var req struct {
@@ -1062,7 +839,7 @@ func listMySharedFilesHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, files)
 }
 
-// Other handlers (delete, share, public download, etc.) are unchanged and correct
+// Other handlers (delete, share, public download, etc.)
 func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 	// ... (implementation is unchanged and correct)
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
@@ -1220,6 +997,7 @@ func publicDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, storageURL, http.StatusFound)
 }
 
+//DOWNLOAD only for authenticated users
 func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
     user := r.Context().Value(userContextKey).(*AuthenticatedUser)
     vars := mux.Vars(r)
@@ -1288,6 +1066,7 @@ func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, correctDownloadURL, http.StatusFound)
 }
 
+//share with only a particular users..
 func shareWithUserHandler(w http.ResponseWriter, r *http.Request) {
 	// ... (implementation is unchanged and correct)
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
@@ -1342,6 +1121,7 @@ func shareWithUserHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]string{"message": fmt.Sprintf("File successfully shared with %s", req.ShareWithUsername)})
 }
 
+//Complete analytics Handler
 func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
 	ctx := context.Background()
@@ -1351,7 +1131,7 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 	// This map will hold all our analytics results.
 	results := make(map[string]interface{})
 
-	// --- 1. Storage Statistics ---
+	// --- Storage Statistics ---
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -1375,7 +1155,7 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 		mu.Unlock()
 	}()
 
-	// --- 2. Uploads By Day ---
+	// --- Uploads By Day ---
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -1398,7 +1178,7 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 		mu.Unlock()
 	}()
 
-	// --- 3. File Type Breakdown ---
+	// --- File Type Breakdown ---
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -1421,7 +1201,7 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 		mu.Unlock()
 	}()
 
-	// --- 4. Top Downloaded Files ---
+	// --- Top Downloaded Files ---
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -1444,7 +1224,7 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 		mu.Unlock()
 	}()
 
-	// --- 5. Sharing Analytics ---
+	// --- Sharing Analytics ---
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -1488,7 +1268,7 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 		mu.Unlock()
 	}()
 
-	// --- 6. File Size Analytics ---
+	// --- File Size Analytics ---
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -1522,7 +1302,6 @@ func analyticsHandler(w http.ResponseWriter, r *http.Request) {
 
 
 func adminListAllFilesHandler(w http.ResponseWriter, r *http.Request) {
-	// ... (implementation is unchanged and correct)
 	baseQuery := `SELECT uf.id, uf.filename, pf.size, pf.mime_type, uf.is_public, uf.download_count, uf.uploaded_at, pf.storage_url, u_owner.name AS owner_name FROM user_files uf JOIN physical_files pf ON uf.physical_file_id = pf.id JOIN users u_owner ON uf.owner_id = u_owner.id`
 	finalQuery := baseQuery + ` ORDER BY uf.uploaded_at DESC`
 	rows, err := pool.Query(context.Background(), finalQuery)
@@ -1594,8 +1373,7 @@ func getUserAuditLogsHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, logs)
 }
 
-// src/main.go
-
+// To make a public file private again
 func makeFilePrivateHandler(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
 	vars := mux.Vars(r)
@@ -1677,7 +1455,7 @@ func main() {
 	adminAPI.Use(adminOnlyMiddleware)
 	adminAPI.HandleFunc("/files/all", adminListAllFilesHandler).Methods("POST")
 
-	// NEW: CORS configuration
+	// CORS configuration
 	// This must wrap the main router `r`. It allows requests from your frontend.
 	corsHandler := handlers.CORS(
 		handlers.AllowedOrigins([]string{"http://localhost:5173","https://keyvia.vercel.app","https://keyvia-backend.onrender.com"}), // Your React app's origin

@@ -43,7 +43,6 @@ const FileTypeIcon = ({ mimeType }) => {
                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
             );
         }
-        // Add more specific icons here if needed
         return (
              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
         );
@@ -56,20 +55,18 @@ const FileTypeIcon = ({ mimeType }) => {
 export default function FileCard({ file, onShare, onPreview }) {
     const { token } = useAuth();
     const { deleteFile } = useFiles();
-    // const { deleteFile } = useFiles(); // This would be your actual context hook
     
     const [isDeleting, setIsDeleting] = useState(false);
     const [actionsVisible, setActionsVisible] = useState(false);
 
     const handleDelete = async () => {
-        // NOTE: window.confirm is bad for UX. A confirmation modal is a better approach.
         setIsDeleting(true);
         try {
             await deleteFile(file.id);
-            // On success, the parent component's state update should remove this card.
+            
         } catch (error) {
             console.error("Failed to delete file:", error);
-            setIsDeleting(false); // Only set back to false if deletion fails
+            setIsDeleting(false); 
         }
     };
 
@@ -78,27 +75,25 @@ export default function FileCard({ file, onShare, onPreview }) {
     const isDeduplicated = file.refCount > 1;
 
      const isPreviewable = isImage || isPdf;
-
-    // const cardStyle = isImage ? { backgroundImage: `url(${file.url})` } : {};
      const cardStyle = isImage ? { backgroundImage: `url(${generateThumbnailUrl(file.url)})` } : {};
     console.log(file);
 
      const formatDate = (dateString) => {
-    // 1. Create a new Date object from the API string
+    // Create a new Date object from the API string
     const date = new Date(dateString);
 
-    // 2. Define an array of short month names
+    // Define an array of short month names
     const monthNames = [
       "Jan", "Feb", "Mar", "Apr", "May", "Jun",
       "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"
     ];
 
-    // 3. Get the day, month index, and year from the date object
+    // Get the day, month index, and year from the date object
     const day = date.getDate();
     const monthIndex = date.getMonth(); // getMonth() is zero-based (0 for Jan)
     const year = date.getFullYear();
 
-    // 4. Assemble and return the formatted string
+    // Assemble and return the formatted string
     return `${day} ${monthNames[monthIndex]} ${year}`;
   };
 
@@ -126,7 +121,7 @@ export default function FileCard({ file, onShare, onPreview }) {
                 <div className="card-overlay">
                     <div className="file-info">
                         <h3 className="filename" title={file.filename}>{file.filename}</h3>
-                        {/* <div className="date">{formatDate(file.uploadedAt)}</div> */}
+                        
                         <div className="file-meta">
                             <span>by {file.ownerName}</span>
                             <span className="meta-divider">|</span>
@@ -152,7 +147,6 @@ export default function FileCard({ file, onShare, onPreview }) {
                         </button>
                          <button className="action-btn" title="Download File" onClick={(e) => { 
                             e.stopPropagation();
-                            // 3. THE FIX: Build the URL to YOUR backend endpoint
                             const downloadUrl = `https://keyvia-backend.onrender.com/api/files/${file.id}/download?token=${token}`;
                             window.open(downloadUrl, '_blank'); 
                         }}>

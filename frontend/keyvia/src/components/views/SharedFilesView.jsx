@@ -3,9 +3,7 @@ import Loader from '../loader';
 import Placeholder from '../Placeholder';
 import FileCard from '../FileCard';
 
-// You will likely pass this function from the parent component (e.g., Dashboard.js)
 export default function SharedFilesView({ openShareModal, openPreviewModal }) {
-    // Destructure the NEW state properties from the useFiles hook
     const { sharedFiles, sharedFilesLoading } = useFiles();
 
     if (sharedFilesLoading) {
@@ -28,7 +26,6 @@ export default function SharedFilesView({ openShareModal, openPreviewModal }) {
         />
             }
             {sharedFiles&&sharedFiles.map(file => (
-                // The FileCard now receives the file object which includes the `sharedWith` array!
                 <FileCard key={file.id} file={file} onShare={() => openShareModal(file)} onPreview={() => openPreviewModal(file)} />
             ))}
         </div>

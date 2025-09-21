@@ -1,7 +1,3 @@
-// src/components/StorageIndicator.js
-import React from 'react';
-
-// Helper function to format bytes into a readable string
 const formatBytes = (bytes, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;

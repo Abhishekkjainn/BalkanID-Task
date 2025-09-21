@@ -1,83 +1,3 @@
-// import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-// import { useAuth } from './AuthContext';
-// import * as api from '../services/api';
-// import { useToast } from './ToastContext';
-
-// const FileContext = createContext(null);
-
-
-// export function FileProvider({ children }) {
-//     const { token } = useAuth();
-//     const { showToast } = useToast();
-//     const [files, setFiles] = useState([]);
-//     const [loading, setLoading] = useState(true);
-//     const [error, setError] = useState(null);
-//     const [filters, setFilters] = useState({});
-
-//     // --- NEW: State for "Shared By Me" view ---
-//     const [sharedFiles, setSharedFiles] = useState([]);
-//     const [sharedFilesLoading, setSharedFilesLoading] = useState(true);
-//     // -------------------------------------------
-
-    
-
-//     const fetchFiles = useCallback(async (currentFilters) => {
-//         if (!token) return;
-
-//         setLoading(true);
-//         setError(null);
-//         try {
-//             // THIS IS THE CHANGE: Activate the API call
-//             const fetchedFiles = await api.searchFiles(token, currentFilters);
-//             setFiles(fetchedFiles);
-//         } catch (err) {
-//             setError(err.message);
-//             setFiles([]); // Clear old files on error
-//         } finally {
-//             setLoading(false);
-//         }
-//     }, [token]);
-
-
-//     useEffect(() => {
-//         fetchFiles(filters);
-//     }, [filters, fetchFiles]);
-    
-//     const deleteFile = async (fileId) => {
-//         try {
-//             await api.deleteFile(token, fileId);
-//             // On success, update the state instantly for a great UX
-//             setFiles(prevFiles => prevFiles.filter(file => file.id !== fileId));
-//             showToast('File deleted successfully.', 'success');
-//         } catch (err) {
-//             showToast(err.message, 'error');
-//         }
-//     };
-    
-//     // Provide a way to manually refresh the file list after an upload
-//     const refreshFiles = () => fetchFiles(filters);
-
-//     const value = {
-//         files,
-//         loading,
-//         error,
-//         filters,
-//         setFilters,
-//         deleteFile,
-//         refreshFiles, 
-//     };
-
-//     return (
-//         <FileContext.Provider value={value}>
-//             {children}
-//         </FileContext.Provider>
-//     );
-// }
-
-// export const useFiles = () => {
-//     return useContext(FileContext);
-// };
-
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import * as api from '../services/api';
@@ -95,10 +15,9 @@ export function FileProvider({ children }) {
     const [error, setError] = useState(null);
     const [filters, setFilters] = useState({});
 
-    // --- NEW: State for "Shared By Me" view ---
+    // --- State for "Shared By Me" view ---
     const [sharedFiles, setSharedFiles] = useState([]);
     const [sharedFilesLoading, setSharedFilesLoading] = useState(true);
-    // -------------------------------------------
 
       const [history, setHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(true);
@@ -118,7 +37,7 @@ export function FileProvider({ children }) {
         }
     }, [token]);
 
-    // --- NEW: Function to fetch files shared by the user ---
+    // --- Function to fetch files shared by the user ---
     const fetchSharedFiles = useCallback(async () => {
         if (!token) return;
         setSharedFilesLoading(true);
@@ -133,7 +52,6 @@ export function FileProvider({ children }) {
             setSharedFilesLoading(false);
         }
     }, [token, showToast]);
-    // --------------------------------------------------------
 
     const fetchHistory = useCallback(async () => {
         if (!token) return;
@@ -171,7 +89,7 @@ export function FileProvider({ children }) {
     
     // Provide a way to manually refresh both lists
     const refreshFiles = () => fetchFiles(filters);
-    const refreshSharedFiles = () => fetchSharedFiles(); // NEW refresh function
+    const refreshSharedFiles = () => fetchSharedFiles(); // refresh function
     const refreshHistory = () => fetchHistory(); 
 
 
@@ -184,11 +102,10 @@ export function FileProvider({ children }) {
         deleteFile,
         refreshFiles, 
         
-        // --- NEW: Expose shared files state and functions ---
+        // --- Expose shared files state and functions ---
         sharedFiles,
         sharedFilesLoading,
         refreshSharedFiles,
-        // ----------------------------------------------------
         history,
         historyLoading,
         refreshHistory,

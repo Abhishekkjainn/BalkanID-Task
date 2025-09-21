@@ -1,45 +1,7 @@
-// import { createContext, useContext, useState, useCallback } from 'react';
-
-// const ToastContext = createContext(null);
-
-// export function ToastProvider({ children }) {
-//     const [toast, setToast] = useState(null);
-
-//     // useCallback ensures this function doesn't get recreated on every render
-//     const showToast = useCallback((message, type = 'success') => {
-//         setToast({ message, type, id: Date.now() }); // Use an ID to re-trigger animation
-//         setTimeout(() => {
-//             setToast(null);
-//         }, 3000000); // Hide after 3 seconds
-//     }, []);
-
-//     const value = { showToast };
-
-//     return (
-//         <ToastContext.Provider value={value}>
-//             {children}
-//             {toast && <Toast key={toast.id} message={toast.message} type={toast.type} />}
-//         </ToastContext.Provider>
-//     );
-// }
-
-// export const useToast = () => useContext(ToastContext);
-
-// // The actual Toast component UI
-// function Toast({ message, type }) {
-//     return (
-//         <div className={`toast toast-${type}`}>
-//             {message}
-//         </div>
-//     );
-// }
-
-
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 const ToastContext = createContext(null);
 
-// --- Icons for different toast types ---
 const ICONS = {
   success: (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -56,7 +18,7 @@ const ICONS = {
 export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null);
 
-  // Corrected timeout: 3000ms = 3 seconds
+  // Corrected timeout: 3000ms = 5 seconds
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type, id: Date.now() });
   }, []);
@@ -90,9 +52,7 @@ function Toast({ message, type, onClose }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 3000); // Hide after 3 seconds
-
-    // Cleanup the timer if the component is unmounted or closed manually
+    }, 5000); // Hide after 5 seconds
     return () => {
       clearTimeout(timer);
     };

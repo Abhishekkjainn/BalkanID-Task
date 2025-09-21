@@ -1,27 +1,22 @@
-// src/pages/dashboard.jsx
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { FileProvider,useFiles } from '../context/FileContext';
 import { Link } from 'react-router-dom';
 
-import { useToast } from '../context/ToastContext'; // Import useToast
-import * as api from '../services/api'; // Import api service
-
-// Import the view components we will create next
+import { useToast } from '../context/ToastContext';
+import * as api from '../services/api'; 
 import AllFilesView from '../components/views/AllFilesView';
 import ReceivedFilesView from '../components/views/ReceivedFilesView';
 import SharedFilesView from '../components/views/SharedFilesView';
 import AnalyticsView from '../components/views/AnalyticsView';
 import UploadModal from '../components/UploadModal';
 import ShareModal from '../components/ShareModal';
-import FilterBar from '../components/filters/FilterBar'; // New import
-import ActiveFilters from '../components/filters/ActiveFilters'; // New import
+import FilterBar from '../components/filters/FilterBar';
+import ActiveFilters from '../components/filters/ActiveFilters';
 import StorageIndicator from '../components/StorageIndicator'; 
 import ProfileModal from '../components/ProfileModal';
 import LogoutModal from '../components/LogoutModal';
 import Loader from '../components/loader';
-// import ProgressBar from '../components/progressBar';
 import History from '../components/views/History';
 import ProgressBar from '../components/ProgressBar';
 import PreviewModal from '../components/PreviewModal';

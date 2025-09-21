@@ -6,11 +6,9 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  // NEW: Add a loading state for the initial auth check
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check localStorage for existing session
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
 
@@ -18,7 +16,6 @@ export function AuthProvider({ children }) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
     }
-    // Finished checking, set loading to false
     setLoading(false);
   }, []);
 
@@ -46,8 +43,6 @@ export function AuthProvider({ children }) {
     setUser(null);
     setToken(null);
   };
-
-  // Expose the new loading state in the context value
   const value = { user, token, loading, login, logout, isAuthenticated: !!token };
 
   return (

@@ -25,7 +25,6 @@ export default function LogoutModal({ logout, isOpen, onClose }) {
 
   return (
     <>
-      {/* Styles are embedded directly to resolve the CSS import error */}
       <style>{`
         /* --- CSS Variables for easy theming --- */
         :root {
