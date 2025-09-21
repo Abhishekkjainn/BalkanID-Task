@@ -1,4 +1,4 @@
-// const API_BASE_URL = 'http://localhost:8080'; // Or use an environment variable
+// const API_BASE_URL = 'http://localhost:8080/'; // Or use an environment variable
 const API_BASE_URL = 'https://keyvia-backend.onrender.com';
 import { sniffMimeFromBytes } from '../utils/mimeSniff';
 
