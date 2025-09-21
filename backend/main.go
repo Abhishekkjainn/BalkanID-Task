@@ -34,13 +34,10 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// sanitizeCloudinaryURL takes a full SDK URL and converts it to the simple, direct format.
-// This is the key insight you discovered.
 func sanitizeCloudinaryURL(url string) string {
-    // This regex finds the /<resource_type>/<delivery_type>/ segment
-    // (e.g., /image/upload/, /raw/upload/, /video/private/)
+    
     re := regexp.MustCompile(`/(image|video|raw)/(upload|private|authenticated)/`)
-    // And replaces it with a single "/", effectively removing it.
+
     return re.ReplaceAllString(url, "/")
 }
 
@@ -118,6 +115,8 @@ func initConfig() {
 	fmt.Println("Configuration loaded successfully.")
 }
 
+
+// Specifies the MIME Types for almost all file extensions.
 func initMimeTypes() {
     // --- Documents ---
     // Modern Microsoft Office
@@ -162,31 +161,8 @@ func initMimeTypes() {
     fmt.Println("Custom MIME types registered successfully.")
 }
 
-// func initDB() {
-//     var err error
 
-//     // --- START OF CHANGE ---
-
-//     // 1. Parse the original database URL from the environment variable.
-//     config, err := pgxpool.ParseConfig(appConfig.DatabaseURL)
-//     if err != nil {
-//         log.Fatalf("Unable to parse database URL: %v", err)
-//     }
-
-//     // 2. This is the crucial fix. It tells pgx not to use its own prepared statement cache
-//     //    and to rely on the server's, which is compatible with pgBouncer.
-//     config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
-
-//     // 3. Create the connection pool using the modified configuration.
-//     pool, err = pgxpool.NewWithConfig(context.Background(), config)
-//     if err != nil {
-//         log.Fatalf("Unable to create connection pool: %v", err)
-//     }
-
-//     fmt.Println("Database connection pool created successfully!")
-// }
-
-
+//Start DB
 func initDB() {
     var err error
 
@@ -195,9 +171,6 @@ func initDB() {
         log.Fatalf("Unable to parse database URL: %v", err)
     }
 
-    // THIS IS THE FIX:
-    // Switch to the simple protocol which is more robust with pgBouncer.
-    // It avoids server-side prepared statements, preventing the "unnamed prepared statement" error.
     config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
     pool, err = pgxpool.NewWithConfig(context.Background(), config)
