@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  # This defines your Go backend service
+  backend:
+    # 'build: ./backend' tells Docker Compose to look for the Dockerfile
+    # inside the './backend' directory and build it.
+    build: ./backend
+    
+    # This maps port 8080 on your computer (the host) to port 8080 inside
+    # the container, so you can access your API at http://localhost:8080.
+    ports:
+      - "8080:8080"
+      
+    # This tells the container to load all environment variables from the
+    # .env file located in your './backend' directory.
+    env_file:
+      - ./backend/.env
