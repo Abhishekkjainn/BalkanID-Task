@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:8080'; // Or use an environment variable
+// const API_BASE_URL = 'http://localhost:8080'; // Or use an environment variable
+const API_BASE_URL = 'https://keyvia-backend.onrender.com';
 import { sniffMimeFromBytes } from '../utils/mimeSniff';
 
 // A helper function to handle API responses
@@ -33,15 +34,16 @@ export async function signup(name, username, password) {
 // --- File Management Functions (Skeletons for now) ---
 export async function searchFiles(token, filters = {}) {
   const response = await fetch(`${API_BASE_URL}/api/files/search`, {
-    method: 'POST',
+    method: 'POST', // FIX: Change from GET to POST
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`, // <-- The token proves who we are
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({ filters }),
   });
-  return handleResponse(response); // We use the existing helper
+  return handleResponse(response);
 }
+
 
 
 
@@ -167,14 +169,13 @@ export async function shareFileWithUser(token, fileId, shareWithUsername) {
  */
 export async function getAnalytics(token) {
   const response = await fetch(`${API_BASE_URL}/api/files/analytics`, {
-    method: 'POST', // As per your backend spec
+    method: 'POST', // FIX: Change from GET to POST
     headers: {
       'Authorization': `Bearer ${token}`,
     },
   });
   return handleResponse(response);
 }
-
 // Add this new function to api.js
 
 /**
@@ -186,7 +187,7 @@ export async function getSharedByMeFiles(token) {
   const response = await fetch(`${API_BASE_URL}/api/files/shared-by-me`, {
     method: 'GET', // As defined in the Go backend
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`, // FIX: Add this header
     },
   });
   return handleResponse(response);
@@ -202,7 +203,7 @@ export async function getAuditLogs(token) {
   const response = await fetch(`${API_BASE_URL}/api/logs`, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`, // FIX: Add this header
     },
   });
   return handleResponse(response);
