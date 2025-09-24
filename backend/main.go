@@ -998,72 +998,136 @@ func publicDownloadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 //DOWNLOAD only for authenticated users
+// func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
+//     user := r.Context().Value(userContextKey).(*AuthenticatedUser)
+//     vars := mux.Vars(r)
+//     userFileID, err := strconv.Atoi(vars["id"])
+//     if err != nil {
+//         writeError(w, http.StatusBadRequest, "Invalid file ID")
+//         return
+//     }
+
+//     ctx := context.Background()
+//     tx, err := pool.Begin(ctx)
+//     if err != nil {
+//         writeError(w, http.StatusInternalServerError, "Database error")
+//         return
+//     }
+//     defer tx.Rollback(ctx)
+
+//     var ownerID int
+//     var isShared bool
+//     var storageURL, filename string // We no longer need mimeType here
+
+//     query := `
+//         SELECT
+//             uf.owner_id,
+//             pf.storage_url,
+//             uf.filename,
+//             EXISTS (SELECT 1 FROM file_shares WHERE user_file_id = $1 AND recipient_id = $2)
+//         FROM user_files uf
+//         JOIN physical_files pf ON uf.physical_file_id = pf.id
+//         WHERE uf.id = $1
+//     `
+//     err = tx.QueryRow(ctx, query, userFileID, user.ID).Scan(&ownerID, &storageURL, &filename, &isShared)
+
+//     if err != nil {
+//         if err == pgx.ErrNoRows {
+//             writeError(w, http.StatusNotFound, "File not found")
+//             return
+//         }
+//         writeError(w, http.StatusInternalServerError, "Database error on scan")
+//         return
+//     }
+
+//     if ownerID != user.ID && !isShared && user.Role != "admin" {
+//         writeError(w, http.StatusForbidden, "You do not have permission to download this file")
+//         return
+//     }
+
+//     // THE FIX: Use the sanitizer to create the simple, direct URL.
+//     // This single line replaces all the previous complex logic.
+//     correctDownloadURL := sanitizeCloudinaryURL(storageURL)
+
+//     // Increment download count.
+//     _, err = tx.Exec(ctx, "UPDATE user_files SET download_count = download_count + 1 WHERE id = $1", userFileID)
+//     if err != nil {
+//         log.Printf("Failed to increment download count for file %d: %v", userFileID, err)
+//     }
+
+//     if err := tx.Commit(ctx); err != nil {
+//         writeError(w, http.StatusInternalServerError, "Database error on commit")
+//         return
+//     }
+
+//     logAuditEvent(user.ID, userFileID, "FILE_DOWNLOAD_AUTH", map[string]interface{}{"filename": filename})
+
+//     // Redirect the user's browser to the final, correct URL for the download.
+//     http.Redirect(w, r, correctDownloadURL, http.StatusFound)
+// }
+
+// --- Backend `authenticatedDownloadHandler` (Corrected) ---
 func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
-    user := r.Context().Value(userContextKey).(*AuthenticatedUser)
-    vars := mux.Vars(r)
-    userFileID, err := strconv.Atoi(vars["id"])
-    if err != nil {
-        writeError(w, http.StatusBadRequest, "Invalid file ID")
-        return
-    }
+	user := r.Context().Value(userContextKey).(*AuthenticatedUser)
+	vars := mux.Vars(r)
+	userFileID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+	writeError(w, http.StatusBadRequest, "Invalid file ID")
+		return
+	}
 
-    ctx := context.Background()
-    tx, err := pool.Begin(ctx)
-    if err != nil {
-        writeError(w, http.StatusInternalServerError, "Database error")
-        return
-    }
-    defer tx.Rollback(ctx)
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	defer tx.Rollback(ctx)
 
-    var ownerID int
-    var isShared bool
-    var storageURL, filename string // We no longer need mimeType here
+	var ownerID int
+	var isShared bool
+	var storageURL, filename string
+	// We will now fetch the *original*, non-sanitized storage_url
+	query := `
+		SELECT
+		uf.owner_id,
+		pf.storage_url,
+		uf.filename,
+		EXISTS (SELECT 1 FROM file_shares WHERE user_file_id = $1 AND recipient_id = $2)
+		FROM user_files uf
+		JOIN physical_files pf ON uf.physical_file_id = pf.id
+		WHERE uf.id = $1`
+	err = tx.QueryRow(ctx, query, userFileID, user.ID).Scan(&ownerID, &storageURL, &filename, &isShared)
 
-    query := `
-        SELECT
-            uf.owner_id,
-            pf.storage_url,
-            uf.filename,
-            EXISTS (SELECT 1 FROM file_shares WHERE user_file_id = $1 AND recipient_id = $2)
-        FROM user_files uf
-        JOIN physical_files pf ON uf.physical_file_id = pf.id
-        WHERE uf.id = $1
-    `
-    err = tx.QueryRow(ctx, query, userFileID, user.ID).Scan(&ownerID, &storageURL, &filename, &isShared)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			writeError(w, http.StatusNotFound, "File not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "Database error on scan")
+		return
+	}
 
-    if err != nil {
-        if err == pgx.ErrNoRows {
-            writeError(w, http.StatusNotFound, "File not found")
-            return
-        }
-        writeError(w, http.StatusInternalServerError, "Database error on scan")
-        return
-    }
+	if ownerID != user.ID && !isShared && user.Role != "admin" {
+		writeError(w, http.StatusForbidden, "You do not have permission to download this file")
+		return
+	}
 
-    if ownerID != user.ID && !isShared && user.Role != "admin" {
-        writeError(w, http.StatusForbidden, "You do not have permission to download this file")
-        return
-    }
+	// Increment download count.
+	_, err = tx.Exec(ctx, "UPDATE user_files SET download_count = download_count + 1 WHERE id = $1", userFileID)
+	if err != nil {
+		log.Printf("Failed to increment download count for file %d: %v", userFileID, err)
+	}
 
-    // THE FIX: Use the sanitizer to create the simple, direct URL.
-    // This single line replaces all the previous complex logic.
-    correctDownloadURL := sanitizeCloudinaryURL(storageURL)
+	if err := tx.Commit(ctx); err != nil {
+		writeError(w, http.StatusInternalServerError, "Database error on commit")
+		return
+	}
 
-    // Increment download count.
-    _, err = tx.Exec(ctx, "UPDATE user_files SET download_count = download_count + 1 WHERE id = $1", userFileID)
-    if err != nil {
-        log.Printf("Failed to increment download count for file %d: %v", userFileID, err)
-    }
+	logAuditEvent(user.ID, userFileID, "FILE_DOWNLOAD_AUTH", map[string]interface{}{"filename": filename})
 
-    if err := tx.Commit(ctx); err != nil {
-        writeError(w, http.StatusInternalServerError, "Database error on commit")
-        return
-    }
-
-    logAuditEvent(user.ID, userFileID, "FILE_DOWNLOAD_AUTH", map[string]interface{}{"filename": filename})
-
-    // Redirect the user's browser to the final, correct URL for the download.
-    http.Redirect(w, r, correctDownloadURL, http.StatusFound)
+	// The fix: Redirect to the original, full URL.
+	http.Redirect(w, r, storageURL, http.StatusFound)
 }
 
 //share with only a particular users..

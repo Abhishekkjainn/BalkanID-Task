@@ -3196,3 +3196,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-size: 12px;
 }
 }
+
+.error-message{
+  color: grey;
+  font-size: 14px;
+}
