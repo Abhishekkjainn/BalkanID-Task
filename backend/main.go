@@ -14,10 +14,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"regexp"
@@ -30,6 +32,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/patrickmn/go-cache"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/time/rate"
 )
@@ -55,10 +58,12 @@ type AppConfig struct {
 
 var appConfig AppConfig
 
-var (
-	mu           sync.Mutex
-	userLimiters = make(map[int]*rate.Limiter)
-)
+// var (
+// 	mu           sync.Mutex
+// 	userLimiters = make(map[int]*rate.Limiter)
+// )
+
+var limiterCache = cache.New(15*time.Minute, 30*time.Minute)
 
 type contextKey string
 
@@ -351,27 +356,28 @@ func authMiddleware(next http.Handler) http.Handler {
 // Rate Limiting Middleware now uses configured values
 func rateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, ok := r.Context().Value(userContextKey).(*AuthenticatedUser)
-		if !ok {
-			writeError(w, http.StatusInternalServerError, "User not found in context for rate limiting")
-			return
-		}
+        user, ok := r.Context().Value(userContextKey).(*AuthenticatedUser)
+        if !ok {
+            writeError(w, http.StatusInternalServerError, "User not found in context for rate limiting")
+            return
+        }
 
-		mu.Lock()
-		limiter, exists := userLimiters[user.ID]
-		if !exists {
-			limiter = rate.NewLimiter(rate.Limit(appConfig.RateRPS), appConfig.RateBurst)
-			userLimiters[user.ID] = limiter
-		}
-		mu.Unlock()
+        // --- START OF FIX ---
+        limiter, found := limiterCache.Get(strconv.Itoa(user.ID))
+        if !found {
+            limiter = rate.NewLimiter(rate.Limit(appConfig.RateRPS), appConfig.RateBurst)
+            // The cache will automatically handle expiration and cleanup.
+            limiterCache.Set(strconv.Itoa(user.ID), limiter, cache.DefaultExpiration)
+        }
+        // --- END OF FIX ---
 
-		if !limiter.Allow() {
-			writeError(w, http.StatusTooManyRequests, "API rate limit exceeded")
-			return
-		}
+        if !limiter.(*rate.Limiter).Allow() {
+            writeError(w, http.StatusTooManyRequests, "API rate limit exceeded")
+            return
+        }
 
-		next.ServeHTTP(w, r)
-	})
+        next.ServeHTTP(w, r)
+    })
 }
 
 // adminOnlyMiddleware for RBAC
@@ -997,74 +1003,6 @@ func publicDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, storageURL, http.StatusFound)
 }
 
-//DOWNLOAD only for authenticated users
-// func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
-//     user := r.Context().Value(userContextKey).(*AuthenticatedUser)
-//     vars := mux.Vars(r)
-//     userFileID, err := strconv.Atoi(vars["id"])
-//     if err != nil {
-//         writeError(w, http.StatusBadRequest, "Invalid file ID")
-//         return
-//     }
-
-//     ctx := context.Background()
-//     tx, err := pool.Begin(ctx)
-//     if err != nil {
-//         writeError(w, http.StatusInternalServerError, "Database error")
-//         return
-//     }
-//     defer tx.Rollback(ctx)
-
-//     var ownerID int
-//     var isShared bool
-//     var storageURL, filename string // We no longer need mimeType here
-
-//     query := `
-//         SELECT
-//             uf.owner_id,
-//             pf.storage_url,
-//             uf.filename,
-//             EXISTS (SELECT 1 FROM file_shares WHERE user_file_id = $1 AND recipient_id = $2)
-//         FROM user_files uf
-//         JOIN physical_files pf ON uf.physical_file_id = pf.id
-//         WHERE uf.id = $1
-//     `
-//     err = tx.QueryRow(ctx, query, userFileID, user.ID).Scan(&ownerID, &storageURL, &filename, &isShared)
-
-//     if err != nil {
-//         if err == pgx.ErrNoRows {
-//             writeError(w, http.StatusNotFound, "File not found")
-//             return
-//         }
-//         writeError(w, http.StatusInternalServerError, "Database error on scan")
-//         return
-//     }
-
-//     if ownerID != user.ID && !isShared && user.Role != "admin" {
-//         writeError(w, http.StatusForbidden, "You do not have permission to download this file")
-//         return
-//     }
-
-//     // THE FIX: Use the sanitizer to create the simple, direct URL.
-//     // This single line replaces all the previous complex logic.
-//     correctDownloadURL := sanitizeCloudinaryURL(storageURL)
-
-//     // Increment download count.
-//     _, err = tx.Exec(ctx, "UPDATE user_files SET download_count = download_count + 1 WHERE id = $1", userFileID)
-//     if err != nil {
-//         log.Printf("Failed to increment download count for file %d: %v", userFileID, err)
-//     }
-
-//     if err := tx.Commit(ctx); err != nil {
-//         writeError(w, http.StatusInternalServerError, "Database error on commit")
-//         return
-//     }
-
-//     logAuditEvent(user.ID, userFileID, "FILE_DOWNLOAD_AUTH", map[string]interface{}{"filename": filename})
-
-//     // Redirect the user's browser to the final, correct URL for the download.
-//     http.Redirect(w, r, correctDownloadURL, http.StatusFound)
-// }
 
 // --- Backend `authenticatedDownloadHandler` (Corrected) ---
 func authenticatedDownloadHandler(w http.ResponseWriter, r *http.Request) {
@@ -1527,7 +1465,42 @@ func main() {
 		handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
 	)(r)
 
-	fmt.Println("Server running on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", corsHandler)) // Use the corsHandler
+	
+
+	// --- START OF FIX ---
+    // Create the server instance
+    server := &http.Server{
+        Addr:    ":8080",
+        Handler: corsHandler,
+    }
+
+    // Create a channel to listen for shutdown signals
+    done := make(chan os.Signal, 1)
+    signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+    // Start the server in a goroutine so it doesn't block
+    go func() {
+        fmt.Println("Server running on http://localhost:8080")
+        if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            log.Fatalf("listen: %s\n", err)
+        }
+    }()
+
+    // Block here until we receive a shutdown signal
+    <-done
+    log.Println("Server is shutting down...")
+
+    // Create a context with a timeout to allow ongoing requests to finish
+    ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+    defer cancel()
+
+    // Attempt a graceful shutdown
+    if err := server.Shutdown(ctx); err != nil {
+        log.Fatalf("Server forced to shutdown: %v", err)
+    }
+
+    // The pool.Close() in the defer will run after this
+    log.Println("Server exited properly")
+    // --- END OF FIX ---
 }
 
