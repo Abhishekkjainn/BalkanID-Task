@@ -1127,7 +1127,7 @@ func main() {
 	initMimeTypes()
 	defer pool.Close()
 	// Create a context for initialization that can be cancelled.
-	initCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	initCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	if err := ensureFilesSchema(initCtx); err != nil {
 		log.Fatal("Failed to ensure schemas: ", err)
